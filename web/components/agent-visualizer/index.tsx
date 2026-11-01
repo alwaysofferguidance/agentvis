@@ -105,7 +105,12 @@ export function AgentVisualizer() {
       sessionCacheRef.current.clear()
       selection.clearAllSelections()
       setIsReviewing(false)
-      restart()
+      seekingRef.current = false
+      if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
+      if (!bridge.selectedSessionId) {
+        restart()
+        return
+      }
     }
     if (!bridge.selectedSessionId && prevSelectedRef.current !== null) {
       prevSelectedRef.current = null
@@ -145,7 +150,7 @@ export function AgentVisualizer() {
 
       prevSelectedRef.current = bridge.selectedSessionId
     }
-  }, [bridge.selectedSessionId, bridge.sessionResetVersion, restart, bridge.flushSessionEvents, saveSnapshot, restoreSnapshot, bridge.getSessionEventCount])
+  }, [bridge.selectedSessionId, bridge.sessionResetVersion, restart, bridge.flushSessionEvents, saveSnapshot, restoreSnapshot, bridge.getSessionEventCount, selection.clearAllSelections])
 
   // Derive markers from the current conversation snapshot so seeks, session
   // swaps, and capped message arrays cannot retain stale markers.

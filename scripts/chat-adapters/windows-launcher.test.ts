@@ -15,7 +15,7 @@ test('Windows PATH resolution reports batch shims instead of selecting them for 
 test('Windows batch launcher overrides are rejected with a safe alternative', () => {
   assert.equal(isWindowsBatchShim('C:\\tools\\pi.cmd', 'win32'), true)
   assert.equal(isWindowsBatchShim('C:\\tools\\pi.exe', 'win32'), false)
-  assert.match(windowsShimError('Pi CLI', 'C:\\tools\\pi.cmd', 'PI_CLI_PATH').message, /native \.exe or JavaScript launcher/)
+  assert.match(windowsShimError('Pi CLI', 'C:\\tools\\pi.cmd', 'PI_CLI_PATH').message, /supported executable launcher/)
 })
 
 test('Windows PATH resolution prefers a native executable when both forms exist', () => {

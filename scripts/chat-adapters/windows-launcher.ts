@@ -12,7 +12,7 @@ export function isWindowsBatchShim(executable: string, platform: NodeJS.Platform
 }
 
 export function windowsShimError(cliName: string, path: string, envName: string): Error {
-  return new Error(`${cliName} was found at ${path}, but Windows .cmd/.bat launchers cannot be started safely. Set ${envName} to the CLI's native .exe or JavaScript launcher.`)
+  return new Error(`${cliName} was found at ${path}, but Windows .cmd/.bat launchers cannot be started directly. Set ${envName} to a supported executable launcher instead.`)
 }
 
 /** Find directly executable PATH entries, reporting Windows batch shims separately. */

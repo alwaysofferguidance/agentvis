@@ -6,7 +6,7 @@ Real-time visualization of Claude Code and Codex agent orchestration. Watch your
 
 ## Why Agent Flow?
 
-I built Agent Flow while developing [CraftMyGame](https://craftmygame.com), a game creation platform driven by AI agents. Debugging agent behavior was painful, so we made it visual. Now we're sharing it.
+I built Agent Flow while developing [Antics](https://antics.gg), a game creation platform driven by AI agents. Debugging agent behavior was painful, so we made it visual. Now we're sharing it.
 
 Claude Code is powerful, but its execution is a black box — you see the final result, not the journey. Agent Flow makes the invisible visible:
 
@@ -139,7 +139,7 @@ Other scripts:
 
 ## Author
 
-Created by [Simon Patole](https://github.com/patoles), for [CraftMyGame](https://craftmygame.com).
+Created by [Simon Patole](https://github.com/patoles), for [Antics](https://antics.gg).
 
 ## Privacy & Telemetry
 
@@ -175,6 +175,8 @@ Open **Talk**, choose **Codex**, **Pi**, or **Antigravity**, and send a message.
 **Dictate** fills the composer using the browser's speech recognition (microphone permission required). Review the text and send it. **Read replies** uses browser speech synthesis. Dictation availability depends on the browser; typed chat works without it.
 
 Codex runs in its read-only sandbox, Pi runs with tools disabled, and Antigravity uses plan mode. The chat endpoint accepts local browser origins and does not accept arbitrary shell commands. Optional launcher overrides are `CODEX_CLI_PATH`, `PI_CLI_PATH`, and `AGY_CLI_PATH`.
+
+On Windows, Pi and Antigravity use native executables; Pi also supports `.js` and `.ps1` launchers through `PI_CLI_PATH`. Batch wrappers (`.cmd` and `.bat`) require a supported executable launcher instead.
 
 ## UI design guidance
 
