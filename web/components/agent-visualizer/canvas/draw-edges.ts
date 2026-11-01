@@ -1,4 +1,4 @@
-import { Agent, ToolCallNode, Particle, Edge, BEAM, ANIM } from '@/lib/agent-types'
+import { Agent, ToolCallNode, Particle, Edge, BEAM } from '@/lib/agent-types'
 import { COLORS } from '@/lib/colors'
 import { alphaHex } from '@/lib/utils'
 import { MIN_VISIBLE_OPACITY } from '@/lib/canvas-constants'
@@ -104,7 +104,6 @@ export function drawEdges(
   agents: Map<string, Agent>,
   toolCalls: Map<string, ToolCallNode>,
   activeEdgeIds: Set<string>,
-  time: number,
 ) {
   for (const edge of edges) {
     const fromAgent = agents.get(edge.from)
@@ -117,7 +116,6 @@ export function drawEdges(
     const fromX = fromAgent.x, fromY = fromAgent.y
     const hasActiveParticles = activeEdgeIds.has(edge.id)
     const baseAlpha = hasActiveParticles ? BEAM.activeAlpha : BEAM.idleAlpha
-    const pulsing = hasActiveParticles ? Math.sin(time * ANIM.pulseSpeed) * 0.1 + 0.9 : 1
 
     const cp = computeControlPoints(fromX, fromY, toX, toY)
     if (!cp) continue
@@ -130,13 +128,7 @@ export function drawEdges(
 
     // Tapered beam: wider at source, thin at destination
     drawTaperedBezier(ctx, fromX, fromY, cp1x, cp1y, cp2x, cp2y, toX, toY,
-      bw.startW, bw.endW, beamColor, baseAlpha * pulsing)
-
-    // Active glow beam (wider, dimmer)
-    if (hasActiveParticles) {
-      drawTaperedBezier(ctx, fromX, fromY, cp1x, cp1y, cp2x, cp2y, toX, toY,
-        bw.startW + BEAM.glowExtra.startW, bw.endW + BEAM.glowExtra.endW, beamColor, BEAM.glowExtra.alpha)
-    }
+      bw.startW, bw.endW, beamColor, baseAlpha)
 
     ctx.restore()
   }

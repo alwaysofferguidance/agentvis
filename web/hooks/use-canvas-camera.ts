@@ -50,8 +50,10 @@ export function useCanvasCamera({
     toolCalls: Map<string, ToolCallNode> | null
     discoveries: Discovery[] | null
     selectedAgentId: string | null
+    width: number
+    height: number
     result: Transform | null
-  }>({ agents: null, toolCalls: null, discoveries: null, selectedAgentId: null, result: null })
+  }>({ agents: null, toolCalls: null, discoveries: null, selectedAgentId: null, width: -1, height: -1, result: null })
 
   // Initialize transform centered on first agents
   useEffect(() => {
@@ -86,7 +88,9 @@ export function useCanvasCamera({
     if (cache.agents === agents
       && cache.toolCalls === toolCalls
       && cache.discoveries === discoveries
-      && cache.selectedAgentId === selectedAgentId) {
+      && cache.selectedAgentId === selectedAgentId
+      && cache.width === dimensions.width
+      && cache.height === dimensions.height) {
       return cache.result
     }
 
@@ -140,7 +144,7 @@ export function useCanvasCamera({
       }
     }
     if (minX === Infinity) {
-      fitCacheRef.current = { agents, toolCalls, discoveries, selectedAgentId, result: null }
+      fitCacheRef.current = { agents, toolCalls, discoveries, selectedAgentId, width: dimensions.width, height: dimensions.height, result: null }
       return null
     }
     const padding = ANIM.viewportPadding
@@ -154,7 +158,7 @@ export function useCanvasCamera({
       y: dimensions.height / 2 - centerY * scale,
       scale,
     }
-    fitCacheRef.current = { agents, toolCalls, discoveries, selectedAgentId, result }
+    fitCacheRef.current = { agents, toolCalls, discoveries, selectedAgentId, width: dimensions.width, height: dimensions.height, result }
     return result
   }, [getDescendantIds, drawPropsRef, simTimeRef])
 

@@ -30,6 +30,8 @@ export const ConversationPanel = forwardRef<ConversationPanelHandle, {visible:bo
   const recognition = useRef<Recognition | null>(null)
   const log = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
+  const dialog = useRef<HTMLElement>(null)
+  const returnFocus = useRef<HTMLElement | null>(null)
   const thread = threads[runtime]
   useImperativeHandle(ref, () => ({
     openWithText: (text: string) => {
@@ -69,6 +71,43 @@ export const ConversationPanel = forwardRef<ConversationPanelHandle, {visible:bo
   },[])
   useEffect(() => { const el=log.current; if(el) el.scrollTop=el.scrollHeight },[thread.messages,visible])
   useEffect(() => {if(!visible) recognition.current?.stop()},[visible])
+  useEffect(() => {
+    if (!visible) return
+    const active = document.activeElement
+    returnFocus.current = active instanceof HTMLElement ? active : null
+    const frame = requestAnimationFrame(() => input.current?.focus())
+    return () => {
+      cancelAnimationFrame(frame)
+      if (returnFocus.current?.isConnected) returnFocus.current.focus()
+      returnFocus.current = null
+    }
+  }, [visible])
+  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      onClose()
+      return
+    }
+    if (event.key !== 'Tab') return
+    const focusable = dialog.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    )
+    if (!focusable?.length) {
+      event.preventDefault()
+      dialog.current?.focus()
+      return
+    }
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && (document.activeElement === first || !dialog.current?.contains(document.activeElement))) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && (document.activeElement === last || !dialog.current?.contains(document.activeElement))) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
   const update = (fn:(thread:Thread)=>Thread) => setThreads(prev=>({...prev,[runtime]:fn(prev[runtime])}))
   const stop = () => { controller.current?.abort(); recognition.current?.stop(); window.speechSynthesis?.cancel() }
   const dictate = () => {
@@ -122,9 +161,10 @@ export const ConversationPanel = forwardRef<ConversationPanelHandle, {visible:bo
   }
   if(!visible) return null
   return <>
-    <button type="button" className="conversation-backdrop" aria-label="Close conversation" onClick={onClose}/>
-    <section className="conversation-panel" aria-label="Agent conversation" role="dialog" aria-modal="true">
+    <div className="conversation-backdrop" aria-hidden="true" onClick={onClose}/>
+    <section ref={dialog} className="conversation-panel" aria-labelledby="conversation-title" role="dialog" aria-modal="true" tabIndex={-1} onKeyDown={handleDialogKeyDown}>
     <header className="conversation-header">
+      <h2 id="conversation-title" className="sr-only">Agent conversation</h2>
       <label className="sr-only" htmlFor="conversation-runtime">Agent</label>
       <select id="conversation-runtime" aria-label="Conversation runtime" value={runtime} disabled={busy||listening} onChange={e=>{setRuntime(e.target.value as Runtime);setError('');setDraft('')}}><option value="codex">Codex</option><option value="pi">Pi</option><option value="agy">Antigravity</option></select>
       <button disabled={busy||listening||thread.messages.length===0} onClick={()=>{update(()=>({messages:[]}));setError('');setDraft('')}} aria-label="New conversation" title="New conversation">New</button>

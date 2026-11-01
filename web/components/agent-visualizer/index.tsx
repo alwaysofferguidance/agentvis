@@ -260,7 +260,7 @@ export function AgentVisualizer() {
 
   return (
     <OpenFileProvider value={bridge.isVSCode ? openFile : null}>
-    <div className="observatory h-screen w-screen relative overflow-hidden" style={{ background: COLORS.void }}>
+    <div className={`observatory h-screen w-screen relative overflow-hidden${showConversation ? " conversation-open" : ""}`} style={{ background: COLORS.void }}>
       {/* Canvas fills everything */}
       <AgentCanvas
         simulationRef={frameRef}

@@ -1,24 +1,18 @@
 'use client'
 
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { Agent, Particle, Edge, Discovery, DepthParticle } from '@/lib/agent-types'
+import { Agent, Edge, Discovery } from '@/lib/agent-types'
 import type { SimulationState } from '@/hooks/simulation/types'
-import { getStateColor } from '@/lib/colors'
 import { ANIM_SPEED, PERF_OVERLAY, PERF_OVERLAY_ENABLED } from '@/lib/canvas-constants'
-import { BloomRenderer } from './bloom-renderer'
-import { createDepthParticles, updateDepthParticles, drawBackground } from './background-layer'
+import { drawBackground } from './background-layer'
 import {
-  type VisualEffect,
   drawTetherLine,
-  drawEffects,
   drawAgents,
   drawMessageBubblesWorld,
   drawEdges, getActiveEdgeIds,
-  drawParticles, buildEdgeMap,
   drawToolCalls,
   drawDiscoveries, drawDiscoveryConnections,
   drawCostLabels, drawCostSummaryPanel,
-  detectStateChanges as detectStateChangesPure,
 } from './canvas/index'
 import { useCanvasCamera } from '@/hooks/use-canvas-camera'
 import { useCanvasInteraction } from '@/hooks/use-canvas-interaction'
@@ -54,15 +48,8 @@ export function AgentCanvas({
   const animationRef = useRef<number>(0)
   const timeRef = useRef(0)
   const simTimeRef = useRef(0)
-  const bloomRef = useRef<BloomRenderer | null>(null)
-  const depthParticlesRef = useRef<DepthParticle[]>([])
   const lastFrameTimeRef = useRef(0)
   const dprRef = useRef(1)
-
-  // Effects system
-  const effectsRef = useRef<VisualEffect[]>([])
-  const prevAgentStatesRef = useRef<Map<string, string>>(new Map())
-  const prevToolStatesRef = useRef<Map<string, string>>(new Map())
 
   // Rate-limited error logging for the draw loop (avoid flooding console)
   const lastDrawErrorRef = useRef(0)
@@ -76,14 +63,6 @@ export function AgentCanvas({
     frameTimes: [] as number[],
     p95: 0,
   })
-
-  // Caches for per-frame lookups — avoid rebuilding Set/Map every ~16ms
-  const edgeLookupCacheRef = useRef<{
-    particles: Particle[]
-    edges: Edge[]
-    activeEdgeIds: Set<string>
-    edgeMap: Map<string, Edge>
-  }>({ particles: [], edges: [], activeEdgeIds: new Set(), edgeMap: new Map() })
 
   // ─── Stable refs for animation loop & event handlers ────────────────────
   // Simulation data (agents, particles, etc.) is synced from simulationRef
@@ -125,13 +104,6 @@ export function AgentCanvas({
   // ─── Setup ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    bloomRef.current = new BloomRenderer(0.5)
-    depthParticlesRef.current = createDepthParticles(dimensions.width, dimensions.height)
-    return () => { bloomRef.current = null }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- particles created once, resized by draw loop
-  }, [])
-
-  useEffect(() => {
     const container = containerRef.current
     if (!container) return
     const dpr = window.devicePixelRatio || 1
@@ -141,24 +113,10 @@ export function AgentCanvas({
         const w = entry.contentRect.width
         const h = entry.contentRect.height
         setDimensions({ width: w, height: h })
-        bloomRef.current?.resize(w * dpr, h * dpr)
       }
     })
     observer.observe(container)
     return () => observer.disconnect()
-  }, [])
-
-  // ─── Detect state changes → spawn effects ──────────────────────────────
-
-  const detectStateChanges = useCallback(() => {
-    const { agents, toolCalls } = drawPropsRef.current
-    const { effects, newAgentStates, newToolStates } = detectStateChangesPure(
-      agents, toolCalls,
-      prevAgentStatesRef.current, prevToolStatesRef.current,
-    )
-    effectsRef.current.push(...effects)
-    prevAgentStatesRef.current = newAgentStates
-    prevToolStatesRef.current = newToolStates
   }, [])
 
   // ─── Main draw loop ────────────────────────────────────────────────────
@@ -218,62 +176,23 @@ export function AgentCanvas({
       // Floaty agent drag
       updateDragLerp(agents, onAgentDrag)
 
-      // Detect state changes → visual effects
-      detectStateChanges()
-
-      // Update effects (mutate in place to avoid GC pressure)
-      {
-        const effects = effectsRef.current
-        let writeIdx = 0
-        for (let i = 0; i < effects.length; i++) {
-          effects[i].age += deltaTime
-          if (effects[i].age < effects[i].duration) {
-            if (writeIdx !== i) effects[writeIdx] = effects[i]
-            writeIdx++
-          }
-        }
-        effects.length = writeIdx
-      }
-
       ctx.clearRect(0, 0, w, h)
-      updateDepthParticles(depthParticlesRef.current, deltaTime, w, h)
-
-      let activeAgentPos: { x: number; y: number; color: string } | undefined
-      for (const [, agent] of agents) {
-        if (agent.state === 'thinking' || agent.state === 'tool_calling' || agent.state === 'waiting_permission') {
-          activeAgentPos = { x: agent.x, y: agent.y, color: getStateColor(agent.state) }
-          break
-        }
-      }
-
-      drawBackground(ctx, w, h, depthParticlesRef.current, transform, showHexGrid, timeRef.current, activeAgentPos)
+      drawBackground(ctx, w, h, transform, showHexGrid)
 
       ctx.save()
       ctx.translate(transform.x, transform.y)
       ctx.scale(transform.scale, transform.scale)
 
-      // Pre-compute shared lookup structures — cached across frames when inputs are unchanged
-      const elCache = edgeLookupCacheRef.current
-      let activeEdgeIds: Set<string>
-      let edgeMap: Map<string, Edge>
-      if (elCache.particles === particles && elCache.edges === edges) {
-        activeEdgeIds = elCache.activeEdgeIds
-        edgeMap = elCache.edgeMap
-      } else {
-        activeEdgeIds = getActiveEdgeIds(particles)
-        edgeMap = buildEdgeMap(edges)
-        edgeLookupCacheRef.current = { particles, edges, activeEdgeIds, edgeMap }
-      }
+      // Keep the static active-edge cue derived from current transport events.
+      const activeEdgeIds = getActiveEdgeIds(particles)
 
       drawDiscoveryConnections(ctx, discoveries, agents)
-      drawEdges(ctx, edges, agents, toolCalls, activeEdgeIds, timeRef.current)
+      drawEdges(ctx, edges, agents, toolCalls, activeEdgeIds)
       drawToolCalls(ctx, toolCalls, timeRef.current, selectedToolCallId)
       drawDiscoveries(ctx, discoveries, agents, selectedDiscoveryId)
-      drawAgents(ctx, agents, selectedAgentId, hoveredAgentId, showStats, timeRef.current)
+      drawAgents(ctx, agents, selectedAgentId, hoveredAgentId, showStats)
       drawMessageBubblesWorld(ctx, agents, simTimeRef.current)
       if (showCostOverlay) drawCostLabels(ctx, agents, toolCalls)
-      drawParticles(ctx, particles, edgeMap, agents, toolCalls, timeRef.current)
-      drawEffects(ctx, effectsRef.current)
 
       if (selectedAgentId) {
         const agent = agents.get(selectedAgentId)
@@ -283,7 +202,6 @@ export function AgentCanvas({
       ctx.restore()
 
       if (showCostOverlay) drawCostSummaryPanel(ctx, agents, toolCalls)
-      if (bloomRef.current) bloomRef.current.apply(canvas, ctx)
 
       // ─── Performance overlay (enabled via ?perf or ?stress) ──────────
       if (PERF_OVERLAY_ENABLED) {
@@ -328,7 +246,7 @@ export function AgentCanvas({
         console.warn('[AgentCanvas] draw error:', err)
       }
     }
-  }, [detectStateChanges, updateCamera, updateDragLerp, transformRef])
+  }, [updateCamera, updateDragLerp, transformRef])
 
   drawRef.current = draw
 
