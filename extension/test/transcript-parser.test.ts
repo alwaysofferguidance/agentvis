@@ -236,3 +236,39 @@ describe('parseTaskNotification', () => {
     assert.equal(parseTaskNotification('<task-notification>\n<status>completed</status>'), null)
   })
 })
+
+describe('leading injected user context', () => {
+  it('uses the real prompt after AGENTS and environment scaffolding for live messages and labels', () => {
+    const { session, events, feed } = setup()
+    session.labelSet = false
+    feed({
+      type: 'user', uuid: 'prompt-1',
+      message: { role: 'user', content: '# AGENTS.md instructions\n\n<INSTRUCTIONS>workspace rules</INSTRUCTIONS><environment_context><cwd>/tmp/project</cwd></environment_context>\n\nFix the failing test.' },
+    })
+
+    assert.equal(session.label, 'Fix the failing test.')
+    assert.deepEqual(events.filter(e => e.type === 'message').map(e => e.payload.content), ['Fix the failing test.'])
+  })
+
+  it('uses the same extracted prompt for catch-up labels and messages', () => {
+    const { session, events, parser } = setup()
+    session.labelSet = false
+    const entry = {
+      sessionId: SESSION_ID, type: 'user', uuid: 'catch-up-1',
+      message: { role: 'user', content: '\uFEFF  # AGENTS.md instructions\n<INSTRUCTIONS>workspace rules</INSTRUCTIONS><environment_context><cwd>/tmp/project</cwd></environment_context>\n\nSummarize the changes.' },
+    }
+
+    parser.extractSessionLabel([entry], session)
+    parser.emitCatchUpEntries([entry], session, SESSION_ID)
+
+    assert.equal(session.label, 'Summarize the changes.')
+    assert.deepEqual(events.filter(e => e.type === 'message').map(e => e.payload.content), ['Summarize the changes.'])
+  })
+
+  it('keeps normal user discussion of AGENTS.md and literal instruction tags', () => {
+    const { events, feed } = setup()
+    const content = 'Please update AGENTS.md and show the literal <INSTRUCTIONS> tag in the docs.'
+    feed({ type: 'user', uuid: 'ordinary-1', message: { role: 'user', content } })
+    assert.deepEqual(events.filter(e => e.type === 'message').map(e => e.payload.content), [content])
+  })
+})

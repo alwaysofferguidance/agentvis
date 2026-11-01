@@ -1,235 +1,135 @@
-"use client"
+﻿'use client'
 
-import { memo, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Z } from "@/lib/agent-types"
-import { COLORS } from "@/lib/colors"
-import { formatTokens } from "@/lib/utils"
-import { agentCost } from "./canvas/draw-cost"
-import { SessionTabs } from "./session-tabs"
-import type { SessionInfo, ConnectionStatus } from "@/lib/bridge-types"
+import { memo, useEffect, useRef, useState } from 'react'
+import type { SessionInfo, ConnectionStatus } from '@/lib/bridge-types'
+import { formatTokens } from '@/lib/utils'
+import { SessionTabs } from './session-tabs'
 
-// ─── Mute/Unmute SVG Icons ───────────────────────────────────────────────────
+type ViewMode = 'activity' | 'map' | 'chat'
 
-function MutedIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <line x1="23" y1="9" x2="17" y2="15" />
-      <line x1="17" y1="9" x2="23" y2="15" />
-    </svg>
-  )
-}
-
-function UnmutedIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-    </svg>
-  )
-}
-
-// ─── Toggle Button ──────────────────────────────────────────────────────────
-
-function ToggleButton({ active, onClick, children, style, activeColor, label }: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-  style?: React.CSSProperties
-  activeColor?: { bg: string; text: string }
-  label?: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      aria-label={label}
-      title={label}
-      className="px-1.5 py-0.5 rounded transition-all"
-      style={{
-        background: active ? (activeColor?.bg ?? COLORS.toggleActive) : COLORS.toggleInactive,
-        border: `1px solid ${COLORS.toggleBorder}`,
-        color: active ? (activeColor?.text ?? COLORS.holoBright) : COLORS.textMuted,
-        ...style,
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-// ─── Connection Status Indicator ────────────────────────────────────────────
-
-function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
-  const color = status === 'watching' ? COLORS.complete
-    : status === 'connected' ? COLORS.idle : COLORS.error
-  const label = status === 'watching' ? 'LIVE'
-    : status === 'connected' ? 'CONNECTED' : 'OFFLINE'
-
-  return (
-    <span className="flex items-center gap-1.5" role="status" aria-live="polite">
-      <span
-        className="w-1.5 h-1.5 rounded-full"
-        style={{ background: color, boxShadow: `0 0 4px ${color}` }}
-      />
-      {label}
-    </span>
-  )
-}
-
-// ─── Top Bar ────────────────────────────────────────────────────────────────
-
-export interface TopBarProps {
-  // Session tabs
-  sessions: SessionInfo[]
-  selectedSessionId: string | null
-  sessionsWithActivity: Set<string>
-  onSelectSession: (id: string) => void
-  onCloseSession: (id: string) => void
-  // Connection
-  isVSCode: boolean
-  connectionStatus: ConnectionStatus
-  // Stats
-  agentCount: number
-  totalTokens: number
-  // Panel toggles
+function PanelMenu({
+  showFileAttention, showTranscript, showCostOverlay, showTimeline, isMuted,
+  agentCount, totalTokens, contextCapacity, estimatedCost, onTogglePanel, onToggleTimeline, onToggleMute,
+}: {
   showFileAttention: boolean
-  showConversation: boolean
   showTranscript: boolean
   showCostOverlay: boolean
   showTimeline: boolean
   isMuted: boolean
-  onTogglePanel: (panel: 'files' | 'transcript' | 'cost' | 'conversation') => void
+  agentCount: number
+  totalTokens: number
+  contextCapacity: number
+  estimatedCost: number
+  onTogglePanel: (panel: 'files' | 'transcript' | 'cost') => void
+  onToggleTimeline: () => void
+  onToggleMute: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false)
+    }
+    const closeEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', closeOutside)
+    document.addEventListener('keydown', closeEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside)
+      document.removeEventListener('keydown', closeEscape)
+    }
+  }, [open])
+  const action = (run: () => void) => { run(); setOpen(false) }
+
+  return <div className="workbench-menu" ref={root}>
+    <button type="button" className="workbench-menu-trigger" aria-label="Inspect and more tools" aria-expanded={open} onClick={() => setOpen(value => !value)}><span className="workbench-menu-desktop-label">Inspect</span><span className="workbench-menu-mobile-label">More</span></button>
+    {open && <div className="workbench-menu-panel" role="group" aria-label="Activity panels">
+      {(agentCount > 1 || totalTokens > 0) && <div className="workbench-menu-summary">
+        {agentCount > 1 && <span>{agentCount} agents in session</span>}
+        {totalTokens > 0 && <span>Context window: {formatTokens(totalTokens)} / {formatTokens(contextCapacity)} ({contextCapacity > 0 ? Math.round(totalTokens / contextCapacity * 100) : 0}%)</span>}
+        {totalTokens > 0 && <span>Estimated cost: ~${estimatedCost.toFixed(2)}</span>}
+      </div>}
+      <button type="button" aria-pressed={showFileAttention} onClick={() => action(() => onTogglePanel('files'))}>Files</button>
+      <button type="button" aria-pressed={showTranscript} onClick={() => action(() => onTogglePanel('transcript'))}>Transcript</button>
+      <button type="button" aria-pressed={showCostOverlay} onClick={() => action(() => onTogglePanel('cost'))}>Context and cost</button>
+      <button type="button" aria-pressed={showTimeline} onClick={() => action(onToggleTimeline)}>Timeline</button>
+      <button type="button" aria-pressed={!isMuted} onClick={() => action(onToggleMute)}>{isMuted ? 'Enable sound' : 'Mute sound'}</button>
+    </div>}
+  </div>
+}
+
+export interface TopBarProps {
+  sessions: SessionInfo[]
+  selectedSessionId: string | null
+  sessionsWithActivity: Set<string>
+  onSelectSession: (id: string | null) => void
+  onCloseSession: (id: string) => void
+  sessionPlaceholder: string
+  connectionStatus: ConnectionStatus
+  isMockData: boolean
+  agentCount: number
+  totalTokens: number
+  contextCapacity: number
+  estimatedCost: number
+  showFileAttention: boolean
+  showTranscript: boolean
+  showCostOverlay: boolean
+  showTimeline: boolean
+  isMuted: boolean
+  viewMode: ViewMode
+  onViewModeChange: (mode: ViewMode) => void
+  onTogglePanel: (panel: 'files' | 'transcript' | 'cost') => void
   onToggleTimeline: () => void
   onToggleMute: () => void
 }
 
 export const TopBar = memo(function TopBar({
-  sessions, selectedSessionId, sessionsWithActivity,
-  onSelectSession, onCloseSession,
-  connectionStatus,
-  agentCount, totalTokens,
-  showFileAttention, showTranscript, showConversation, showCostOverlay, showTimeline, isMuted,
-  onTogglePanel, onToggleTimeline, onToggleMute,
+  sessions, selectedSessionId, sessionsWithActivity, onSelectSession, onCloseSession,
+  sessionPlaceholder, connectionStatus, isMockData, agentCount, totalTokens, contextCapacity, estimatedCost,
+  showFileAttention, showTranscript, showCostOverlay, showTimeline, isMuted,
+  viewMode, onViewModeChange, onTogglePanel, onToggleTimeline, onToggleMute,
 }: TopBarProps) {
-  const headerRef = useRef<HTMLDivElement>(null)
-  const moreTriggerRef = useRef<HTMLButtonElement>(null)
-  const moreMenuRef = useRef<HTMLDivElement>(null)
-  const [moreOpen, setMoreOpen] = useState(false)
-  useLayoutEffect(() => {
-    const header = headerRef.current
-    if (!header) return
-    const update = () => header.parentElement?.style.setProperty('--obs-panel-top', `${header.offsetTop + header.offsetHeight + 12}px`)
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(header)
-    return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    if (!moreOpen) return
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      setMoreOpen(false)
-      moreTriggerRef.current?.focus()
-    }
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (moreMenuRef.current?.contains(target) || moreTriggerRef.current?.contains(target)) return
-      setMoreOpen(false)
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('pointerdown', handlePointerDown)
-    }
-  }, [moreOpen])
-
-  const closeMore = (action: () => void) => {
-    action()
-    setMoreOpen(false)
-    moreTriggerRef.current?.focus()
-  }
-
-  return (
-    <div ref={headerRef} className="observatory-header" style={{ zIndex: moreOpen ? Z.contextMenu : Z.info }}>
-      {/* Session tabs — scrollable, takes available space */}
-      <div className="observatory-sessions scrollbar-hide">
-        <SessionTabs
-          sessions={sessions}
-          selectedSessionId={selectedSessionId}
-          sessionsWithActivity={sessionsWithActivity}
-          onSelectSession={onSelectSession}
-          onCloseSession={onCloseSession}
-        />
-      </div>
-
-      {/* Right-side info/controls */}
-      <div className="observatory-tools" style={{ color: COLORS.textMuted }}>
-        <ConnectionIndicator status={connectionStatus} />
-        <span className="observatory-metric"><b>{agentCount}</b> agents</span>
-        <span className="observatory-metric">
-          <b>{formatTokens(totalTokens)}</b> tokens
-          <span style={{ color: COLORS.textDim, marginLeft: 4 }}>
-            ~${agentCost(totalTokens).toFixed(2)}
-          </span>
-        </span>
-
-        {/* Mutually exclusive panel group */}
-        <div className="observatory-desktop-panels flex items-center gap-1">
-          <ToggleButton active={showFileAttention} onClick={() => onTogglePanel('files')}>Files</ToggleButton>
-          <ToggleButton active={showTranscript} onClick={() => onTogglePanel('transcript')}>Transcript</ToggleButton>
-          <ToggleButton
-            active={showCostOverlay}
-            onClick={() => onTogglePanel('cost')}
-            activeColor={{ bg: COLORS.costActiveBg, text: COLORS.complete }}
-          >
-            Cost
-          </ToggleButton>
-        </div>
-
-        <ToggleButton active={showConversation} onClick={() => onTogglePanel('conversation')}>Talk</ToggleButton>
-        {/* Independent toggles */}
-        <div className="observatory-desktop-panels flex items-center gap-1">
-          <ToggleButton active={showTimeline} onClick={onToggleTimeline}>Timeline</ToggleButton>
-          <ToggleButton active={!isMuted} label={isMuted ? "Enable sound" : "Mute sound"} onClick={onToggleMute}>
-          {isMuted ? <MutedIcon /> : <UnmutedIcon />}
-          </ToggleButton>
-        </div>
-
-        <div className="observatory-overflow">
-          <button
-            ref={moreTriggerRef}
-            type="button"
-            className="observatory-more-trigger"
-            aria-expanded={moreOpen}
-            aria-controls="observatory-more-menu"
-            onClick={() => setMoreOpen(open => !open)}
-          >
-            More <span aria-hidden="true">{moreOpen ? '▴' : '▾'}</span>
-          </button>
-          {moreOpen && (
-            <div ref={moreMenuRef} id="observatory-more-menu" className="observatory-more-menu" aria-label="More controls">
-              <div className="observatory-more-metrics">
-                <span><b>{agentCount}</b> agents</span>
-                <span><b>{formatTokens(totalTokens)}</b> tokens</span>
-                <span>~${agentCost(totalTokens).toFixed(2)}</span>
-              </div>
-              <ToggleButton active={showFileAttention} onClick={() => closeMore(() => onTogglePanel('files'))}>Files</ToggleButton>
-              <ToggleButton active={showTranscript} onClick={() => closeMore(() => onTogglePanel('transcript'))}>Transcript</ToggleButton>
-              <ToggleButton active={showCostOverlay} onClick={() => closeMore(() => onTogglePanel('cost'))} activeColor={{ bg: COLORS.costActiveBg, text: COLORS.complete }}>Cost</ToggleButton>
-              <ToggleButton active={showTimeline} onClick={() => closeMore(onToggleTimeline)}>Timeline</ToggleButton>
-              <ToggleButton active={!isMuted} label={isMuted ? "Enable sound" : "Mute sound"} onClick={() => closeMore(onToggleMute)}>
-                {isMuted ? <MutedIcon /> : <UnmutedIcon />} Sound
-              </ToggleButton>
-            </div>
-          )}
-        </div>
-      </div>
+  return <header className="workbench-header">
+    <div className="workbench-product">Agent Flow</div>
+    <div className="workbench-session-slot">
+      <SessionTabs
+        sessions={sessions}
+        selectedSessionId={selectedSessionId}
+        sessionsWithActivity={sessionsWithActivity}
+        onSelectSession={onSelectSession}
+        onCloseSession={onCloseSession}
+        placeholder={sessionPlaceholder}
+      />
     </div>
-  )
+    <nav className="workbench-views" aria-label="Workbench view">
+      {([['activity', 'Activity'], ['map', 'Map'], ['chat', 'Local chat']] as const).map(([mode, label]) =>
+        <button key={mode} type="button" aria-pressed={viewMode === mode} onClick={() => onViewModeChange(mode)}>{label}</button>
+      )}
+    </nav>
+    <label className="sr-only" htmlFor="workbench-view-select">Workbench view</label>
+    <select id="workbench-view-select" className="workbench-view-select" value={viewMode} onChange={event => onViewModeChange(event.target.value as ViewMode)}>
+      <option value="activity">Activity</option>
+      <option value="map">Map</option>
+      <option value="chat">Local chat</option>
+    </select>
+    <div className="workbench-header-actions">
+      {viewMode !== 'chat' && !isMockData && <span className={`workbench-connection connection-${connectionStatus}`} role="status">
+        <i aria-hidden="true" />{connectionStatus === 'watching' ? 'Live' : connectionStatus === 'connected' ? 'Connected' : 'Offline'}
+      </span>}
+      <PanelMenu
+        showFileAttention={showFileAttention}
+        showTranscript={showTranscript}
+        showCostOverlay={showCostOverlay}
+        showTimeline={showTimeline}
+        isMuted={isMuted}
+        agentCount={agentCount}
+        totalTokens={totalTokens}
+        contextCapacity={contextCapacity}
+        estimatedCost={estimatedCost}
+        onTogglePanel={onTogglePanel}
+        onToggleTimeline={onToggleTimeline}
+        onToggleMute={onToggleMute}
+      />
+    </div>
+  </header>
 })

@@ -20,11 +20,12 @@ import { OpenFileProvider } from "./tool-content-renderer"
 import { stopPropagationHandlers } from "./shared-ui"
 import { TimelineEvent, TIMING } from "@/lib/agent-types"
 import { COLORS } from "@/lib/colors"
+import { agentCost } from "./canvas/draw-cost"
 
 import { MOCK_DURATION } from "@/lib/mock-scenario"
-import { MessageFeedPanel } from "./message-feed-panel"
 import { ConversationPanel } from "./conversation-panel"
 import { TopBar } from "./top-bar"
+import { Workbench } from "./workbench"
 import { useAudioEffects } from "@/hooks/use-audio-effects"
 
 export function AgentVisualizer() {
@@ -66,16 +67,15 @@ export function AgentVisualizer() {
   const selection = useSelectionState({ agents, toolCalls, discoveries })
 
   const [showStats, setShowStats] = useState(false)
-  const [showHexGrid, setShowHexGrid] = useState(true)
+  const [showHexGrid, setShowHexGrid] = useState(false)
   const [showCostOverlay, setShowCostOverlay] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
   const [showFileAttention, setShowFileAttention] = useState(false)
   const [showTranscript, setShowTranscript] = useState(false)
-  const [showConversation, setShowConversation] = useState(false)
+  const [viewMode, setViewMode] = useState<"activity" | "map" | "chat">("activity")
 
   // Mutually exclusive panel toggling — opening one closes the others
-  const toggleExclusivePanel = useCallback((panel: 'files' | 'transcript' | 'cost' | 'conversation') => {
-    setShowConversation(prev => panel === 'conversation' ? !prev : false)
+  const toggleExclusivePanel = useCallback((panel: 'files' | 'transcript' | 'cost') => {
     setShowFileAttention(prev => panel === 'files' ? !prev : false)
     setShowTranscript(prev => panel === 'transcript' ? !prev : false)
     setShowCostOverlay(prev => panel === 'cost' ? !prev : false)
@@ -199,7 +199,7 @@ export function AgentVisualizer() {
     zoomToFit: () => { setZoomToFitTrigger(n => n + 1) },
     clearSelection: () => { selection.clearAllSelections() },
     deselectAgent: () => { selection.clearAgent() },
-    closeTranscript: () => { setShowConversation(false); setShowTranscript(false); setShowFileAttention(false); setShowTimeline(false); setShowCostOverlay(false) },
+    closeTranscript: () => { setShowTranscript(false); setShowFileAttention(false); setShowTimeline(false); setShowCostOverlay(false) },
     toggleMute: handleToggleMute,
     setSpeed,
     selectedAgentId: selection.selectedAgentId,
@@ -210,6 +210,16 @@ export function AgentVisualizer() {
   const totalTokens = useMemo(() => {
     let sum = 0
     for (const a of agents.values()) sum += a.tokensUsed
+    return sum
+  }, [agents])
+  const estimatedCost = useMemo(() => {
+    let total = 0
+    for (const agent of agents.values()) total += agentCost(agent.tokensUsed, agent.model)
+    return total
+  }, [agents])
+  const contextCapacity = useMemo(() => {
+    let sum = 0
+    for (const agent of agents.values()) sum += agent.tokensMax
     return sum
   }, [agents])
 
@@ -260,9 +270,9 @@ export function AgentVisualizer() {
 
   return (
     <OpenFileProvider value={bridge.isVSCode ? openFile : null}>
-    <div className={`observatory h-screen w-screen relative overflow-hidden${showConversation ? " conversation-open" : ""}`} style={{ background: COLORS.void }}>
-      {/* Canvas fills everything */}
-      <AgentCanvas
+    <div className={`observatory agent-workbench h-screen w-screen relative overflow-hidden${viewMode === 'chat' ? " chat-view-open" : ""}${viewMode !== 'chat' && (agents.size > 0 || timelineEvents.length > 0) ? " has-playback" : ""}`} style={{ background: COLORS.void }}>
+      {/* The relationship map remains available as a focused alternate view. */}
+      {viewMode === "map" && <AgentCanvas
         simulationRef={frameRef}
         selectedAgentId={selection.selectedAgentId}
         hoveredAgentId={selection.hoveredAgentId}
@@ -279,18 +289,21 @@ export function AgentVisualizer() {
         onDiscoveryClick={selection.handleDiscoveryClick}
         selectedDiscoveryId={selection.selectedDiscoveryId}
         showCostOverlay={showCostOverlay}
-      />
-
-      {/* Message feed panel (top-left) */}
-      <MessageFeedPanel
+      />}
+      <Workbench
+        view={viewMode}
         conversations={conversations}
         agents={agents}
-        onAgentClick={selection.handleAgentClick}
-        selectedAgentId={selection.selectedAgentId}
+        toolCalls={toolCalls}
+        sessionLabel={bridge.sessions.find(session => session.id === bridge.selectedSessionId)?.label ?? ''}
+        hasSessions={bridge.sessions.length > 0}
+        hasSelectedSession={bridge.selectedSessionId !== null}
+        isMockData={bridge.useMockData}
+        onOpenLocalChat={() => setViewMode('chat')}
       />
 
       {/* Agent detail card (floating, tethered to node) */}
-      {selectedAgent && selection.selectedAgentWorldPos && (
+      {viewMode === 'map' && selectedAgent && selection.selectedAgentWorldPos && (
         <div {...stopPropagationHandlers}>
           <AgentDetailCard
             agent={selectedAgent}
@@ -300,7 +313,7 @@ export function AgentVisualizer() {
       )}
 
       {/* Tool call detail popup */}
-      {selection.selectedToolData && selection.selectedToolScreenPos && (
+      {viewMode === 'map' && selection.selectedToolData && selection.selectedToolScreenPos && (
         <div {...stopPropagationHandlers}>
           <ToolDetailPopup
             tool={selection.selectedToolData}
@@ -311,7 +324,7 @@ export function AgentVisualizer() {
       )}
 
       {/* Discovery detail popup */}
-      {selection.selectedDiscoveryData && selection.selectedDiscoveryScreenPos && (
+      {viewMode === 'map' && selection.selectedDiscoveryData && selection.selectedDiscoveryScreenPos && (
         <div {...stopPropagationHandlers}>
           <DiscoveryDetailPopup
             discovery={selection.selectedDiscoveryData}
@@ -322,17 +335,17 @@ export function AgentVisualizer() {
       )}
 
       {/* Chat panel (bottom-right, shown when agent selected) */}
-      <AgentChatPanel
+      {viewMode === 'map' && selectedConversation.length > 0 && <AgentChatPanel
         visible={!!selectedAgent}
         agentName={selectedAgent?.name ?? ''}
         agentState={selectedAgent?.state ?? 'idle'}
         conversation={selectedConversation}
         runtime={selectedAgent?.runtime ?? sessionRuntime}
         onClose={selection.clearAgent}
-      />
+      />}
 
       {/* Context menu */}
-      {selection.contextMenu && (
+      {viewMode === 'map' && selection.contextMenu && (
         <GlassContextMenu
           position={selection.contextMenu}
           items={contextMenuItems}
@@ -340,8 +353,8 @@ export function AgentVisualizer() {
         />
       )}
 
-      {/* Floating control strip */}
-      <ControlBar
+      {/* Playback controls appear only when there is observed history. */}
+      {viewMode !== 'chat' && (agents.size > 0 || timelineEvents.length > 0) && <ControlBar
         isPlaying={isPlaying}
         speed={speed}
         currentTime={currentTime}
@@ -363,9 +376,10 @@ export function AgentVisualizer() {
         timelineEvents={timelineEvents}
         isReviewing={isReviewing}
         eventCount={timelineEvents.length}
+        isMockData={bridge.useMockData}
         onEnterReview={handleEnterReview}
         onResumeLive={handleResumeLive}
-      />
+      />}
 
       {/* File attention panel (slide-in from right) */}
       <FileAttentionPanel
@@ -391,7 +405,7 @@ export function AgentVisualizer() {
         onClose={() => setShowTimeline(false)}
       />
 
-      <ConversationPanel visible={showConversation} onClose={() => setShowConversation(false)} />
+      <ConversationPanel visible={viewMode === 'chat'} presentation="view" onClose={() => setViewMode('activity')} />
 
       {/* Top bar: session tabs + info/controls */}
       <TopBar
@@ -400,16 +414,20 @@ export function AgentVisualizer() {
         sessionsWithActivity={bridge.sessionsWithActivity}
         onSelectSession={bridge.selectSession}
         onCloseSession={handleCloseSession}
-        isVSCode={bridge.isVSCode}
         connectionStatus={bridge.connectionStatus}
+        isMockData={bridge.useMockData}
         agentCount={agents.size}
         totalTokens={totalTokens}
+        estimatedCost={estimatedCost}
+        contextCapacity={contextCapacity}
         showFileAttention={showFileAttention}
         showTranscript={showTranscript}
-        showConversation={showConversation}
         showCostOverlay={showCostOverlay}
         showTimeline={showTimeline}
         isMuted={isMuted}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        sessionPlaceholder={bridge.useMockData ? 'Demo playback' : 'No observed session'}
         onTogglePanel={toggleExclusivePanel}
         onToggleTimeline={() => setShowTimeline(prev => !prev)}
         onToggleMute={handleToggleMute}

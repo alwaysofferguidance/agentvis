@@ -3,6 +3,7 @@ import './globals.css'
 import './observatory.css'
 import './panel-density.css'
 import './neutral-ui.css'
+import './workbench.css'
 
 export const metadata: Metadata = {
   title: 'LLM Agent Visualizer',

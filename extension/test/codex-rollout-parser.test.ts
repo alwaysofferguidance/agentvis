@@ -186,6 +186,27 @@ describe('CodexRolloutParser', () => {
     assert.equal(state.label, 'List files in the current directory.')
   })
 
+  it('strips leading AGENTS and environment scaffolding before emitting and labeling a prompt', () => {
+    const events: AgentEvent[] = []
+    const labels: string[] = []
+    const parser = new CodexRolloutParser({
+      emit: e => events.push(e),
+      elapsed: () => 0,
+      setLabel: label => labels.push(label),
+    })
+    const state = createCodexRolloutState()
+    parser.processLine(JSON.stringify({
+      type: 'response_item',
+      payload: {
+        type: 'message', role: 'user',
+        content: [{ type: 'input_text', text: '\uFEFF  # AGENTS.md instructions\n\n<INSTRUCTIONS>workspace rules</INSTRUCTIONS><environment_context><cwd>/tmp/project</cwd></environment_context>\n\nFix the failing test.' }],
+      },
+    }), state)
+
+    assert.deepEqual(events.filter(e => e.type === 'message').map(e => e.payload.content), ['Fix the failing test.'])
+    assert.deepEqual(labels, ['Fix the failing test.'])
+  })
+
   it('only emits model_detected when the model changes', () => {
     // Feed the same turn_context.model twice and confirm a single emit.
     const events: AgentEvent[] = []

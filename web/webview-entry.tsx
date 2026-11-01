@@ -5,6 +5,7 @@ import './app/globals.css'
 import './app/observatory.css'
 import './app/panel-density.css'
 import './app/neutral-ui.css'
+import './app/workbench.css'
 
 // Production webview: use VS Code API for messaging
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void }

@@ -25,6 +25,7 @@ import {
 import { summarizeInput, summarizeResult, extractInputData, detectError, buildDiscovery } from './tool-summarizer'
 import { estimateTokensFromContent, estimateTokensFromText } from './token-estimator'
 import { createLogger } from './logger'
+import { extractUserPromptText } from './user-prompt'
 
 const log = createLogger('TranscriptParser')
 
@@ -222,9 +223,9 @@ export class TranscriptParser {
     // Handle string content (user messages are often just strings)
     if (typeof msg.content === 'string' && msg.content.trim()) {
       if (role === 'user' || role === 'human') {
-        const text = msg.content.trim()
+        const text = this.extractCleanUserText(msg.content)
         // Skip system-injected context (continuation summaries, IDE context, etc.)
-        if (!this.isSystemInjectedContent(text)) {
+        if (text) {
           const hash = entry.uuid ? `user:${entry.uuid}` : `user:${text.slice(0, HASH_PREFIX_MAX)}`
           if (seenMsgs && seenMsgs.has(hash)) { /* skip duplicate */ }
           else {
@@ -275,10 +276,11 @@ export class TranscriptParser {
     session: WatchedSession | undefined,
     sessionId?: string,
   ): void {
-    const text = safeText(block)
+    const rawText = safeText(block)
+    if (!rawText) return
+    // Skip or strip system/IDE context injected into user turns.
+    const text = emitRole === 'user' ? this.extractCleanUserText(rawText) : rawText
     if (!text) return
-    // Skip system/IDE context injected into user turns
-    if (emitRole === 'user' && this.isSystemInjectedContent(text)) return
 
     const hash = entryUuid ? `${emitRole}:${entryUuid}` : `${emitRole}:${text.slice(0, HASH_PREFIX_MAX)}`
     if (seenMsgs?.has(hash)) return
@@ -643,8 +645,8 @@ export class TranscriptParser {
 
       // String content (common for user messages)
       if (typeof msg.content === 'string' && msg.content.trim()) {
-        const text = msg.content.trim()
-        if (this.isSystemInjectedContent(text)) { continue }
+        const text = this.extractCleanUserText(msg.content)
+        if (!text) { continue }
         this.delegate.emit({
           time: 0,
           type: 'message',
@@ -657,8 +659,8 @@ export class TranscriptParser {
       if (!Array.isArray(msg.content)) { continue }
       for (const block of msg.content) {
         if (block.type === 'text' && 'text' in block) {
-          const text = safeText(block)
-          if (text && !this.isSystemInjectedContent(text)) {
+          const text = this.extractCleanUserText(safeText(block))
+          if (text) {
             this.delegate.emit({
               time: 0,
               type: 'message',
@@ -689,15 +691,13 @@ export class TranscriptParser {
     const msg = entry.message
     if (!msg) return null
     if (typeof msg.content === 'string' && msg.content.trim()) {
-      const text = msg.content.trim()
-      if (!this.isSystemInjectedContent(text)) return text
-      return null
+      return this.extractCleanUserText(msg.content)
     }
     if (Array.isArray(msg.content)) {
       for (const block of msg.content) {
         if (block.type === 'text' && 'text' in block) {
-          const text = safeText(block)
-          if (text && !this.isSystemInjectedContent(text)) return text
+          const text = this.extractCleanUserText(safeText(block))
+          if (text) return text
         }
       }
     }
@@ -706,7 +706,16 @@ export class TranscriptParser {
 
   /** Check if text is system-injected context (not a real user/assistant message) */
   isSystemInjectedContent(text: string): boolean {
-    return SYSTEM_CONTENT_PREFIXES.some(prefix => text.startsWith(prefix))
+    const normalized = text.replace(/^\uFEFF/, '').trimStart()
+    return SYSTEM_CONTENT_PREFIXES.some(prefix => normalized.startsWith(prefix))
+      || extractUserPromptText(text) === null
+  }
+
+  /** Return user-authored content after removing recognized leading scaffolding. */
+  private extractCleanUserText(text: string): string | null {
+    const normalized = text.replace(/^\uFEFF/, '').trimStart()
+    if (SYSTEM_CONTENT_PREFIXES.some(prefix => normalized.startsWith(prefix))) return null
+    return extractUserPromptText(text)
   }
 
   /** Truncate to first line, max chars — fits in a tab */

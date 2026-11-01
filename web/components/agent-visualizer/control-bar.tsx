@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, memo } from 'react'
-import { TimelineEvent, Z, POPUP, TIMING } from '@/lib/agent-types'
+import { useState, useCallback, useRef, memo } from 'react'
+import { TimelineEvent, Z, POPUP } from '@/lib/agent-types'
 import { COLORS } from '@/lib/colors'
 import { timeAtClientX, timeForSeekKey } from './scrubber'
 
@@ -17,6 +17,7 @@ interface ControlBarProps {
   timelineEvents: TimelineEvent[]
   isReviewing?: boolean
   eventCount?: number
+  isMockData?: boolean
   onResumeLive?: () => void
   onEnterReview?: () => void
 }
@@ -94,65 +95,22 @@ export function ControlBar(props: ControlBarProps) {
 // ─── Live Mode Control Bar ───────────────────────────────────────────────────
 
 function LiveControlBar({
-  currentTime, totalDuration, timelineEvents,
-  eventCount = 0, onEnterReview, isReviewing,
+  onEnterReview,
 }: ControlBarProps) {
-  const [pulseOn, setPulseOn] = useState(true)
-  const scrubberEvents = useScrubberEvents(timelineEvents, totalDuration)
-
-  useEffect(() => {
-    if (isReviewing) return
-    const interval = setInterval(() => setPulseOn(p => !p), TIMING.livePulseMs)
-    return () => clearInterval(interval)
-  }, [isReviewing])
 
   return (
     <div
-      className="observatory-playback absolute bottom-4 left-4 right-4 mx-auto"
+      className="observatory-playback workbench-playback-compact absolute bottom-4 left-4 right-4 mx-auto"
       style={{ pointerEvents: 'auto', maxWidth: POPUP.controlBarMaxWidth, zIndex: Z.controlBar }}
     >
-      <div className="glass-card px-5 py-3 flex items-center gap-3">
-        {/* LIVE badge */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span
-            className="w-2 h-2 rounded-full transition-opacity duration-500"
-            style={{
-              background: COLORS.liveDot,
-              boxShadow: pulseOn ? `0 0 8px ${COLORS.liveDot}, 0 0 16px rgba(255,68,68,0.3)` : `0 0 4px ${COLORS.liveDot}80`,
-              opacity: pulseOn ? 1 : 0.6,
-            }}
-          />
-          <span className="text-[10px] font-mono font-semibold tracking-wider" style={{ color: COLORS.liveText }}>
-            LIVE
-          </span>
-        </div>
-
-        {/* Time */}
-        <span className="text-xs font-mono shrink-0" style={{ color: COLORS.textPrimary }}>
-          {formatTime(currentTime)}
-        </span>
-
-        {/* Read-only event track */}
-        <div className="flex-1 relative h-6 flex items-center">
-          <div
-            className="w-full rounded-full relative"
-            style={{ height: 3, background: COLORS.holoBg10 }}
-          >
-            <EventMarkers events={scrubberEvents} totalDuration={totalDuration} eventCount={scrubberEvents.length} className="opacity-80" />
-          </div>
-        </div>
-
-        {/* Event count */}
-        <span className="text-[10px] font-mono shrink-0" style={{ color: COLORS.textMuted }}>
-          {eventCount} events
-        </span>
-
+      <div className="glass-card workbench-live-controls flex items-center gap-3">
         {/* Review button */}
         <button
           onClick={onEnterReview}
-          className="px-2.5 py-1 rounded text-[10px] font-mono transition-all hover:scale-105"
+          aria-label="Review activity history"
+          className="workbench-review-action"
           style={{
-            background: COLORS.holoBg10,
+            background: 'transparent',
             border: `1px solid ${COLORS.reviewBtnBorder}`,
             color: COLORS.textPrimary,
           }}
@@ -171,7 +129,7 @@ const SPEEDS = [0.5, 1, 2, 4] as const
 function ReviewControlBar({
   isPlaying, speed, currentTime, totalDuration,
   onPlayPause, onRestart, onSpeedChange, onSeek,
-  timelineEvents, isReviewing, onResumeLive,
+  timelineEvents, isReviewing, onResumeLive, isMockData = false,
 }: ControlBarProps) {
   const scrubberRef = useRef<HTMLDivElement>(null)
   const activePointerIdRef = useRef<number | null>(null)
@@ -321,7 +279,7 @@ function ReviewControlBar({
         {isReviewing && (
           <button
             onClick={onResumeLive}
-            aria-label="Return to live playback"
+            aria-label={isMockData ? 'Return to the end of the demo replay' : 'Return to live playback'}
             className="px-2.5 py-1 rounded text-[10px] font-mono font-semibold transition-all hover:scale-105 shrink-0"
             style={{
               background: COLORS.liveResumeBg,
@@ -329,7 +287,7 @@ function ReviewControlBar({
               color: COLORS.liveText,
             }}
           >
-            ▶ LIVE
+            {isMockData ? 'Return to end' : '▶ LIVE'}
           </button>
         )}
 

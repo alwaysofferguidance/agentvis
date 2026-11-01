@@ -42,6 +42,7 @@ import {
 } from './tool-summarizer'
 import { estimateTokenCost, estimateTokensFromText } from './token-estimator'
 import { createLogger } from './logger'
+import { extractUserPromptText } from './user-prompt'
 
 const log = createLogger('CodexRolloutParser')
 
@@ -194,8 +195,6 @@ function flattenContent(content: MessageContent[] | string | undefined): string 
 
 /** Markers identifying Codex-injected user messages that contain no real user prompt. */
 const CODEX_PURE_INJECTION_PREFIXES = [
-  '# AGENTS.md instructions for', // project-level instructions
-  '<environment_context>',         // per-turn environment metadata
   '<turn_aborted>',                // interruption marker
   '<subagent_notification>',       // reserved for future subagent support
 ]
@@ -215,7 +214,7 @@ const CODEX_REQUEST_MARKER = '## My request for Codex:'
  * or the original text (trimmed) otherwise.
  */
 function extractCodexUserText(raw: string): string | null {
-  const text = raw.trim()
+  const text = extractUserPromptText(raw)
   if (!text) return null
   if (SYSTEM_CONTENT_PREFIXES.some(p => text.startsWith(p))) return null
   if (CODEX_PURE_INJECTION_PREFIXES.some(p => text.startsWith(p))) return null

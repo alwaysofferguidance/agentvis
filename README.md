@@ -51,7 +51,7 @@ pnpm run setup      # configure Claude Code hooks (one-time)
 pnpm run dev        # start the web app + event relay
 ```
 
-To use a different relay port, set `AGENT_FLOW_RELAY_PORT` before running the dev command (for example, in PowerShell: `$env:AGENT_FLOW_RELAY_PORT=3002; pnpm run dev`).
+To use a different relay port, set `AGENT_FLOW_RELAY_PORT` before running the dev command (for example, in PowerShell: `$env:AGENT_FLOW_RELAY_PORT=3002; npm run dev`).
 
 Open http://localhost:3000 and start a Claude Code session in another terminal — events will stream to the browser in real-time.
 
@@ -65,7 +65,7 @@ Agent Flow automatically configures Claude Code hooks the first time you open th
 
 ### Runtime selection
 
-By default Agent Flow watches both Claude Code (`~/.claude/projects/`) and Codex (`~/.codex/sessions/`) concurrently in all three entry points (VS Code extension, `pnpm run dev`, `npx agent-flow-app`). Sessions are shown side-by-side and tagged by runtime. If you only use one, the other is a harmless no-op — no visible effect, no user action needed.
+By default Agent Flow watches both Claude Code (`~/.claude/projects/`) and Codex (`~/.codex/sessions/`) concurrently in all three entry points (VS Code extension, `pnpm run dev`, `npx agent-flow-app`). Choose the observed session you want from the searchable session picker. If you only use one runtime, the other is a harmless no-op — no visible effect, no user action needed.
 
 To restrict to one runtime:
 
@@ -172,7 +172,9 @@ The name "Agent Flow" and associated logos are trademarks of Simon Patole. See [
 
 Run `npm run dev` from the repository root after installing dependencies. This starts the local relay on port 3001 and the web app on port 3000 on Windows, macOS, or Linux.
 
-Open **Talk**, choose **Codex**, **Pi**, or **Antigravity**, and send a message. Each runtime uses its installed CLI and existing login. Follow-up messages resume the conversation; **New conversation** starts another thread. **Stop** cancels the current reply. Conversation text survives a reload in the same browser tab; restarting the relay requires a new conversation.
+The default **Activity** view shows observed messages, tool calls, and recorded results. Use the searchable session picker to choose a run, **Details** to inspect an event, and **Map** to inspect agent relationships. Playback controls appear when there is history to review.
+
+Open **Local chat**, choose **Codex**, **Pi**, or **Antigravity**, and send a message. Local chat is separate from the selected observed session. Each runtime uses its installed CLI and existing login. Follow-up messages resume the conversation; **New conversation** starts another thread. **Stop** cancels the current reply. Conversation text survives a reload in the same browser tab; restarting the relay requires a new conversation.
 
 **Dictate** fills the composer using the browser's speech recognition (microphone permission required). Review the text and send it. **Read replies** uses browser speech synthesis. Dictation availability depends on the browser; typed chat works without it.
 

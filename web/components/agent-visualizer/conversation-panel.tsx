@@ -16,7 +16,7 @@ interface Recognition {
 
 export interface ConversationPanelHandle { openWithText: (text: string) => void }
 
-export const ConversationPanel = forwardRef<ConversationPanelHandle, {visible:boolean;onClose:()=>void}>(function ConversationPanel({visible,onClose}, ref) {
+export const ConversationPanel = forwardRef<ConversationPanelHandle, {visible:boolean;onClose:()=>void;presentation?:'modal'|'view'}>(function ConversationPanel({visible,onClose,presentation='modal'}, ref) {
   const [runtime,setRuntime] = useState<Runtime>('codex')
   const [threads,setThreads] = useState<Record<Runtime,Thread>>({codex:{messages:[]},pi:{messages:[]},agy:{messages:[]}})
   const [draft,setDraft] = useState('')
@@ -33,6 +33,7 @@ export const ConversationPanel = forwardRef<ConversationPanelHandle, {visible:bo
   const dialog = useRef<HTMLElement>(null)
   const returnFocus = useRef<HTMLElement | null>(null)
   const thread = threads[runtime]
+  const isView = presentation === 'view'
   useImperativeHandle(ref, () => ({
     openWithText: (text: string) => {
       if (text) setDraft(current => (current + text).slice(0, 16000))
@@ -89,7 +90,7 @@ export const ConversationPanel = forwardRef<ConversationPanelHandle, {visible:bo
       onClose()
       return
     }
-    if (event.key !== 'Tab') return
+    if (event.key !== 'Tab' || isView) return
     const focusable = dialog.current?.querySelectorAll<HTMLElement>(
       'button:not([disabled]), select:not([disabled]), textarea:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
     )
@@ -161,10 +162,11 @@ export const ConversationPanel = forwardRef<ConversationPanelHandle, {visible:bo
   }
   if(!visible) return null
   return <>
-    <div className="conversation-backdrop" aria-hidden="true" onClick={onClose}/>
-    <section ref={dialog} className="conversation-panel" aria-labelledby="conversation-title" role="dialog" aria-modal="true" tabIndex={-1} onKeyDown={handleDialogKeyDown}>
+    {!isView && <div className="conversation-backdrop" aria-hidden="true" onClick={onClose}/>}
+    <section ref={dialog} className={`conversation-panel${isView ? ' conversation-panel-view' : ''}`} aria-labelledby="conversation-title" role={isView ? 'region' : 'dialog'} aria-modal={isView ? undefined : true} tabIndex={-1} onKeyDown={handleDialogKeyDown}>
     <header className="conversation-header">
       <h2 id="conversation-title" className="sr-only">Agent conversation</h2>
+      {isView && <div className="conversation-destination"><strong>Local chat</strong><span>Destination: independent local runtime thread</span></div>}
       <label className="sr-only" htmlFor="conversation-runtime">Agent</label>
       <select id="conversation-runtime" aria-label="Conversation runtime" value={runtime} disabled={busy||listening} onChange={e=>{setRuntime(e.target.value as Runtime);setError('');setDraft('')}}><option value="codex">Codex</option><option value="pi">Pi</option><option value="agy">Antigravity</option></select>
       <button disabled={busy||listening||thread.messages.length===0} onClick={()=>{update(()=>({messages:[]}));setError('');setDraft('')}} aria-label="New conversation" title="New conversation">New</button>
