@@ -6,10 +6,12 @@
 import * as http from 'http'
 import { createRelay } from './relay'
 import { createChatHandler } from './chat-server'
-import { DEFAULT_RELAY_PORT, DEV_WEB_ORIGIN_PATTERN } from '../extension/src/constants'
+import { getRelayPort } from './dev-config'
+import { DEV_WEB_ORIGIN_PATTERN } from '../extension/src/constants'
 
 async function main() {
   const workspace = process.argv[2] || process.cwd()
+  const relayPort = getRelayPort(process.env.AGENT_FLOW_RELAY_PORT)
 
   console.log('Starting Agent Flow dev relay...\n')
   console.log(`Workspace: ${workspace}`)
@@ -44,8 +46,8 @@ async function main() {
     res.end('Agent Flow Dev Relay')
   })
 
-  server.listen(DEFAULT_RELAY_PORT, '127.0.0.1', () => {
-    console.log(`\nSSE relay on http://127.0.0.1:${DEFAULT_RELAY_PORT}/events`)
+  server.listen(relayPort, '127.0.0.1', () => {
+    console.log(`\nSSE relay on http://127.0.0.1:${relayPort}/events`)
     console.log('Ready! Events will appear in the web app.')
   })
 

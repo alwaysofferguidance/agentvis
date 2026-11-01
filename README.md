@@ -51,6 +51,8 @@ pnpm run setup      # configure Claude Code hooks (one-time)
 pnpm run dev        # start the web app + event relay
 ```
 
+To use a different relay port, set `AGENT_FLOW_RELAY_PORT` before running the dev command (for example, in PowerShell: `$env:AGENT_FLOW_RELAY_PORT=3002; pnpm run dev`).
+
 Open http://localhost:3000 and start a Claude Code session in another terminal — events will stream to the browser in real-time.
 
 ### VS Code Extension
