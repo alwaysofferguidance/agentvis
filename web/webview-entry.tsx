@@ -2,6 +2,8 @@ import { createRoot } from 'react-dom/client'
 import { AgentVisualizer } from './components/agent-visualizer'
 import { vscodeBridge } from './lib/vscode-bridge'
 import './app/globals.css'
+import './app/observatory.css'
+import './app/panel-density.css'
 
 // Production webview: use VS Code API for messaging
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void }

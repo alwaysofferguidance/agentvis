@@ -6,7 +6,6 @@ import {
   ToolCallNode,
   Edge,
   SimulationEvent,
-  type TimelineEntry,
 } from '@/lib/agent-types'
 import { MOCK_SCENARIO } from '@/lib/mock-scenario'
 import { TOOL_CARD_W, TOOL_CARD_H, FORCE, TOOL_SLOT, BUBBLE_VISIBLE_S, MODEL_FAMILY_CONTEXT, DEFAULT_CONTEXT_SIZE, FALLBACK_CONTEXT_SIZE, ANIM_SPEED } from '@/lib/canvas-constants'
@@ -17,6 +16,9 @@ import { createEmptyState, MAX_EVENT_LOG } from './simulation/types'
 import { processEvent, type ProcessEventContext } from './simulation/process-event'
 import { computeNextFrame } from './simulation/animate'
 import { snapVisualState } from './simulation/snap-visual-state'
+import { shouldPublishPlaybackClock } from './simulation/playback-clock'
+import { createRestartReplayState } from './simulation/restart-replay-state'
+import { appendPausedEvents } from './simulation/paused-events'
 
 /** ms between React state updates — canvas uses frameRef for smooth 60fps */
 const UI_THROTTLE_MS = 250
@@ -195,7 +197,17 @@ export function useAgentSimulation(options: UseAgentSimulationOptions = {}) {
 
     const prev = frameRef.current
     if (!prev.isPlaying) {
-      animationRef.current = requestAnimationFrame(animateRef.current)
+      if (capturedEvents && !useMockData) {
+        const activeFilter = sessionFilterRef.current
+        const eligibleEvents = capturedEvents.filter(event =>
+          !activeFilter || !event.sessionId || event.sessionId === activeFilter
+        )
+        if (eligibleEvents.length > 0) {
+          const next = appendPausedEvents(prev, eligibleEvents)
+          frameRef.current = next
+          setState(next)
+        }
+      }
       return
     }
 
@@ -269,12 +281,10 @@ export function useAgentSimulation(options: UseAgentSimulationOptions = {}) {
     // Force tick — updates agent positions in frameRef
     if (forceSimRef.current) forceSimRef.current.tick()
 
-    // Throttle React re-renders — UI updates at ~4/sec, canvas stays smooth via frameRef
-    if (newEvents.length > 0) {
-      if (!lastUIUpdateRef.current || timestamp - lastUIUpdateRef.current >= UI_THROTTLE_MS) {
-        setState(frameRef.current)
-        lastUIUpdateRef.current = timestamp
-      }
+    // Publish playback time even between events; canvas reads frameRef at full frame rate.
+    if (shouldPublishPlaybackClock(timestamp, lastUIUpdateRef.current, UI_THROTTLE_MS)) {
+      setState(frameRef.current)
+      lastUIUpdateRef.current = timestamp
     }
 
     animationRef.current = requestAnimationFrame(animateRef.current)
@@ -293,6 +303,15 @@ export function useAgentSimulation(options: UseAgentSimulationOptions = {}) {
     }
     return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current) }
   }, [state.isPlaying])
+
+  // A paused simulation has no animation loop, so consume each newly queued
+  // live batch once and append it to replay history without applying visuals.
+  useEffect(() => {
+    if (state.isPlaying || useMockData || !externalEvents?.length) return
+    const frame = requestAnimationFrame(timestamp => animateRef.current(timestamp))
+    animationRef.current = frame
+    return () => cancelAnimationFrame(frame)
+  }, [state.isPlaying, useMockData, externalEvents, externalEvents?.length])
 
   // ─── Playback controls ───────────────────────────────────────────────────
   const play = useCallback(() => {
@@ -316,41 +335,13 @@ export function useAgentSimulation(options: UseAgentSimulationOptions = {}) {
       commitState(createEmptyState({ isPlaying: true, speed: frameRef.current.speed }))
       return
     }
-    // Keep active agents but clear completed state and visual history
+    // Restart from the beginning of the replay, preserving retained live events.
+    // The mock scenario is canonical, so its processed event log must be cleared.
     const prev = frameRef.current
-    const agents = new Map<string, Agent>()
-    for (const [id, agent] of prev.agents) {
-      if (agent.state !== 'complete') {
-        agents.set(id, { ...agent, toolCalls: 0, messageBubbles: [], timeAlive: 0 })
-      }
-    }
-
-    const edges = prev.edges.filter(e =>
-      e.type === 'parent-child' && agents.has(e.from) && agents.has(e.to)
-    )
-
-    const timelineEntries = new Map<string, TimelineEntry>()
-    for (const [id, entry] of prev.timelineEntries) {
-      if (agents.has(id)) {
-        timelineEntries.set(id, { ...entry, blocks: [] })
-      }
-    }
-
-    const conversations: SimulationState['conversations'] = new Map()
-    for (const id of agents.keys()) conversations.set(id, [])
-
-    const eventLog = prev.eventLog.filter(e =>
-      e.type === 'agent_spawn' && agents.has(e.payload?.name as string)
-    )
-
-    const next = {
-      ...createEmptyState({ isPlaying: true, speed: prev.speed }),
-      agents, edges, timelineEntries, conversations,
-      eventLog, eventIndex: eventLog.length,
-    }
+    const next = createRestartReplayState(prev, useMockData)
     commitState(next)
     setTimeout(() => syncForceSimulation(next.agents, next.edges), 0)
-  }, [syncForceSimulation, commitState])
+  }, [syncForceSimulation, commitState, useMockData])
 
   const updateAgentPosition = useCallback((agentId: string, x: number, y: number) => {
     // Drag updates — write to frameRef only (canvas reads it, no React render)

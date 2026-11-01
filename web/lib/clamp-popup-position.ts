@@ -1,4 +1,4 @@
-import { CARD } from '@/lib/agent-types'
+import { CARD } from './agent-types'
 
 /** Fallback viewport dimensions for SSR / non-browser environments */
 const SSR_VIEWPORT_W = 800
@@ -17,7 +17,7 @@ export function clampPopupPosition(
   const maxY = typeof window !== 'undefined' ? window.innerHeight - popupHeight - CARD.margin : SSR_VIEWPORT_H
 
   return {
-    left: Math.min(Math.max(CARD.margin, position.x - popupWidth / 2), maxX),
-    top: Math.min(Math.max(CARD.margin, position.y + offsetY), maxY),
+    left: Math.max(CARD.margin, Math.min(position.x - popupWidth / 2, maxX)),
+    top: Math.max(CARD.margin, Math.min(position.y + offsetY, maxY)),
   }
 }

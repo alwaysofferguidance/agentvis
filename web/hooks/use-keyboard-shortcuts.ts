@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { shouldIgnoreShortcut } from "../lib/keyboard-shortcuts"
 
 export function useKeyboardShortcuts(actions: {
   togglePlayPause: () => void
@@ -21,7 +22,7 @@ export function useKeyboardShortcuts(actions: {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (shouldIgnoreShortcut(e)) return
       const a = actionsRef.current
 
       switch (e.key) {

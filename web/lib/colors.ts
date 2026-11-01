@@ -10,8 +10,8 @@ import type { AgentState, ContextBreakdown } from './agent-types'
 // Holographic Color Palette
 export const COLORS = {
   // Background
-  void: '#050510',
-  hexGrid: '#0d0d1f',
+  void: '#080d14',
+  hexGrid: '#131f2b',
 
   // Primary Hologram
   holoBase: '#66ccff',
@@ -42,9 +42,9 @@ export const COLORS = {
 
   // UI Chrome
   nodeInterior: 'rgba(10, 15, 40, 0.5)',
-  textPrimary: '#aaeeff',
-  textDim: '#66ccff90',
-  textMuted: '#66ccff50',
+  textPrimary: '#dceaf3',
+  textDim: '#91a8ba',
+  textMuted: '#8298ab',
 
   // Glass card
   glassBg: 'rgba(10, 15, 30, 0.7)',

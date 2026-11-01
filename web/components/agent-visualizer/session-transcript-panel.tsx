@@ -62,13 +62,13 @@ export function SessionTranscriptPanel({
   return (
     <SlidingPanel
       visible={visible}
-      position={{ right: 0, bottom: 0, top: 36 }}
+      position={{ right: 0, bottom: 0, top: 'var(--obs-panel-top, 140px)' }}
       zIndex={Z.transcriptPanel}
       width={CARD.transcript.width}
       {...stopPropagationHandlers}
     >
       <div
-        className="h-full flex flex-col"
+        className="density-transcript h-full flex flex-col min-h-0"
         style={{
           background: COLORS.panelBg,
           backdropFilter: 'blur(24px)',
@@ -77,7 +77,7 @@ export function SessionTranscriptPanel({
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-4 py-2.5 flex-shrink-0"
+          className="density-transcript-header flex items-center justify-between flex-shrink-0"
           style={{ borderBottom: `1px solid ${COLORS.holoBorder08}` }}
         >
           <div className="flex items-center gap-2">
@@ -91,7 +91,8 @@ export function SessionTranscriptPanel({
           <div className="flex items-center gap-1">
             <button
               onClick={() => { setShowSearch(s => !s); if (showSearch) setSearchQuery('') }}
-              className="text-[9px] font-mono px-1.5 py-0.5 rounded transition-all"
+              aria-label={showSearch ? 'Hide transcript search' : 'Search transcript'}
+              className="density-action-target text-[9px] font-mono rounded transition-all"
               style={{
                 background: showSearch ? COLORS.toggleActive : 'transparent',
                 color: showSearch ? COLORS.assistantText : COLORS.textMuted,
@@ -105,7 +106,7 @@ export function SessionTranscriptPanel({
 
         {/* Search bar */}
         {showSearch && (
-          <div className="px-3 pb-2 flex-shrink-0" style={{ borderBottom: `1px solid ${COLORS.holoBorder06}` }}>
+          <div className="density-transcript-search flex-shrink-0" style={{ borderBottom: `1px solid ${COLORS.holoBorder06}` }}>
             <input
               ref={searchRef}
               type="text"
@@ -116,7 +117,7 @@ export function SessionTranscriptPanel({
                 e.stopPropagation()
               }}
               placeholder="Filter messages..."
-              className="w-full px-2 py-1 rounded text-[10px] font-mono outline-none"
+              className="w-full px-2 py-1 rounded text-[11px] font-mono outline-none"
               style={{
                 background: COLORS.holoBg05,
                 border: `1px solid ${COLORS.holoBorder12}`,
@@ -130,12 +131,12 @@ export function SessionTranscriptPanel({
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-3 py-2"
+          className="density-transcript-list flex-1 overflow-y-auto px-3 py-2"
           style={{ scrollbarWidth: 'thin', scrollbarColor: `${COLORS.scrollbarThumb} transparent` }}
         >
           {filteredConversation.length === 0 ? (
-            <div className="flex items-center justify-center h-32">
-              <p className="text-[10px] font-mono" style={{ color: COLORS.textMuted }}>
+            <div className="density-empty-inline flex items-center justify-center">
+              <p className="text-[11px] font-mono" style={{ color: COLORS.textMuted }}>
                 {searchQuery ? 'No matching messages' : 'Waiting for session activity...'}
               </p>
             </div>
@@ -161,7 +162,7 @@ export function SessionTranscriptPanel({
           <div className="flex justify-center py-1 flex-shrink-0" style={{ borderTop: `1px solid ${COLORS.holoBorder06}` }}>
             <button
               onClick={scrollToBottom}
-              className="text-[9px] font-mono px-3 py-1 rounded-full transition-all"
+            className="density-action-target text-[10px] font-mono px-3 rounded-full transition-all"
               style={{
                 background: COLORS.holoBg10,
                 border: `1px solid ${COLORS.glassBorder}`,

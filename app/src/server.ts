@@ -8,6 +8,7 @@ import * as path from 'path'
 import { exec, execFile } from 'child_process'
 
 import { createRelay } from '../../scripts/relay'
+import { createChatHandler } from '../../scripts/chat-server'
 import { createTelemetryClient } from '../../scripts/telemetry'
 import { serveStatic } from './static'
 
@@ -30,7 +31,9 @@ export async function startServer(options: ServerOptions) {
 
   const relay = await createRelay({ workspace, verbose: options.verbose, telemetry })
 
+  const chat = createChatHandler(workspace)
   const server = http.createServer((req, res) => {
+    if (req.url === '/chat') { void chat(req,res); return }
     // SSE endpoint
     if (req.url === '/events') {
       return relay.handleSSE(req, res)

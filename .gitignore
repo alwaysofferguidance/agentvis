@@ -27,3 +27,12 @@ extension/.vscode/
 extension/package-lock.json
 
 .DS_Store
+
+# Local service logs
+.agent-flow/
+
+# Local UI verification artifacts
+.playwright-cli/
+output/
+/error
+/error.txt

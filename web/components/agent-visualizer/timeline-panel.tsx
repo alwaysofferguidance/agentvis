@@ -193,19 +193,19 @@ export function TimelinePanel({ visible, timelineEntries, currentTime, onClose }
       className="mx-auto"
       style={{ maxWidth: 700 }}
     >
-      <div className="glass-card relative">
+      <div className="glass-card density-card density-timeline-card relative">
         <PanelHeader onClose={onClose}>
           <span className="text-[10px] font-mono tracking-wider" style={{ color: COLORS.textPrimary }}>
             EXECUTION TIMELINE
           </span>
         </PanelHeader>
 
-        <div className="overflow-auto" style={{ maxHeight: 300 }}>
+        <div className="density-timeline-scroll overflow-auto">
           <canvas ref={canvasRef} style={{ display: 'block' }} />
         </div>
 
         {/* Legend (static DOM) */}
-        <div className="flex items-center gap-3 px-3 py-1.5" style={{ borderTop: `1px solid ${COLORS.holoBorder06}` }}>
+        <div className="flex items-center gap-3 px-2 py-1.5 overflow-x-auto" style={{ borderTop: `1px solid ${COLORS.holoBorder06}` }}>
           <div style={{ width: LABEL_WIDTH, flexShrink: 0 }} />
           <div className="flex items-center gap-3">
             {LEGEND_ITEMS.map(item => (

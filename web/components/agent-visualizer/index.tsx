@@ -1,5 +1,6 @@
 "use client"
 
+import { buildTimelineEvents } from "@/lib/timeline-events"
 import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from "react"
 import { useAgentSimulation } from "@/hooks/use-agent-simulation"
 import { useVSCodeBridge } from "@/hooks/use-vscode-bridge"
@@ -22,6 +23,7 @@ import { COLORS } from "@/lib/colors"
 
 import { MOCK_DURATION } from "@/lib/mock-scenario"
 import { MessageFeedPanel } from "./message-feed-panel"
+import { ConversationPanel } from "./conversation-panel"
 import { TopBar } from "./top-bar"
 import { useAudioEffects } from "@/hooks/use-audio-effects"
 
@@ -69,9 +71,11 @@ export function AgentVisualizer() {
   const [showTimeline, setShowTimeline] = useState(false)
   const [showFileAttention, setShowFileAttention] = useState(false)
   const [showTranscript, setShowTranscript] = useState(false)
+  const [showConversation, setShowConversation] = useState(false)
 
   // Mutually exclusive panel toggling — opening one closes the others
-  const toggleExclusivePanel = useCallback((panel: 'files' | 'transcript' | 'cost') => {
+  const toggleExclusivePanel = useCallback((panel: 'files' | 'transcript' | 'cost' | 'conversation') => {
+    setShowConversation(prev => panel === 'conversation' ? !prev : false)
     setShowFileAttention(prev => panel === 'files' ? !prev : false)
     setShowTranscript(prev => panel === 'transcript' ? !prev : false)
     setShowCostOverlay(prev => panel === 'cost' ? !prev : false)
@@ -93,8 +97,31 @@ export function AgentVisualizer() {
   // frame can consume and discard events from pendingEventsRef.
   const sessionCacheRef = useRef<Map<string, { snapshot: ReturnType<typeof saveSnapshot>; eventCount: number }>>(new Map())
   const prevSelectedRef = useRef<string | null>(null)
+  const previousResetVersionRef = useRef(bridge.sessionResetVersion)
   useLayoutEffect(() => {
+    if (previousResetVersionRef.current !== bridge.sessionResetVersion) {
+      previousResetVersionRef.current = bridge.sessionResetVersion
+      prevSelectedRef.current = null
+      sessionCacheRef.current.clear()
+      selection.clearAllSelections()
+      setIsReviewing(false)
+      restart()
+    }
+    if (!bridge.selectedSessionId && prevSelectedRef.current !== null) {
+      prevSelectedRef.current = null
+      sessionCacheRef.current.clear()
+      selection.clearAllSelections()
+      setIsReviewing(false)
+      seekingRef.current = false
+      if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
+      restart()
+      return
+    }
     if (bridge.selectedSessionId && bridge.selectedSessionId !== prevSelectedRef.current) {
+      selection.clearAllSelections()
+      setIsReviewing(false)
+      seekingRef.current = false
+      if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null }
       // Save outgoing session state (if any)
       if (prevSelectedRef.current !== null) {
         sessionCacheRef.current.set(prevSelectedRef.current, {
@@ -109,6 +136,7 @@ export function AgentVisualizer() {
       const cached = sessionCacheRef.current.get(bridge.selectedSessionId)
       if (cached) {
         restoreSnapshot(cached.snapshot)
+        play()
         bridge.flushSessionEvents(bridge.selectedSessionId, cached.eventCount)
       } else {
         restart()
@@ -117,38 +145,11 @@ export function AgentVisualizer() {
 
       prevSelectedRef.current = bridge.selectedSessionId
     }
-  }, [bridge.selectedSessionId, restart, bridge.flushSessionEvents, saveSnapshot, restoreSnapshot, bridge.getSessionEventCount])
+  }, [bridge.selectedSessionId, bridge.sessionResetVersion, restart, bridge.flushSessionEvents, saveSnapshot, restoreSnapshot, bridge.getSessionEventCount])
 
-  // Timeline events — incremental: only processes new conversation messages
-  const timelineCacheRef = useRef<{
-    counts: Map<string, number>
-    events: TimelineEvent[]
-    idCounter: number
-  }>({ counts: new Map(), events: [], idCounter: 0 })
-
-  const timelineEvents = useMemo((): TimelineEvent[] => {
-    const cache = timelineCacheRef.current
-    let appended = false
-    for (const [agentId, msgs] of conversations) {
-      const prevLen = cache.counts.get(agentId) ?? 0
-      if (msgs.length > prevLen) {
-        for (let i = prevLen; i < msgs.length; i++) {
-          const msg = msgs[i]
-          cache.events.push({
-            id: `event-${cache.idCounter++}`,
-            type: msg.type === 'tool_call' ? 'tool_call' : msg.type === 'tool_result' ? 'tool_result' : 'message',
-            label: msg.content.slice(0, 20),
-            timestamp: msg.timestamp,
-            nodeId: agentId,
-          })
-        }
-        cache.counts.set(agentId, msgs.length)
-        appended = true
-      }
-    }
-    if (appended) cache.events.sort((a, b) => a.timestamp - b.timestamp)
-    return cache.events
-  }, [conversations])
+  // Derive markers from the current conversation snapshot so seeks, session
+  // swaps, and capped message arrays cannot retain stale markers.
+  const timelineEvents = useMemo(() => buildTimelineEvents(conversations), [conversations])
 
   // Review mode: when in live mode and user pauses to scrub through history
 
@@ -177,7 +178,7 @@ export function AgentVisualizer() {
   useEffect(() => () => { if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current) }, [])
 
   const handleRestart = useCallback(() => {
-    setIsReviewing(false)
+    setIsReviewing(true)
     restart(true)
   }, [restart])
 
@@ -193,7 +194,7 @@ export function AgentVisualizer() {
     zoomToFit: () => { setZoomToFitTrigger(n => n + 1) },
     clearSelection: () => { selection.clearAllSelections() },
     deselectAgent: () => { selection.clearAgent() },
-    closeTranscript: () => { setShowTranscript(false) },
+    closeTranscript: () => { setShowConversation(false); setShowTranscript(false); setShowFileAttention(false); setShowTimeline(false); setShowCostOverlay(false) },
     toggleMute: handleToggleMute,
     setSpeed,
     selectedAgentId: selection.selectedAgentId,
@@ -244,9 +245,7 @@ export function AgentVisualizer() {
     sessionCacheRef.current.delete(id)
     if (bridge.selectedSessionId === id) {
       const remaining = bridge.sessions.filter(s => s.id !== id)
-      if (remaining.length > 0) {
-        bridge.selectSession(remaining[remaining.length - 1].id)
-      }
+      bridge.selectSession(remaining[remaining.length - 1]?.id ?? null)
     }
   }, [bridge])
 
@@ -254,21 +253,9 @@ export function AgentVisualizer() {
     bridge.bridgeOpenFile(filePath, line)
   }, [bridge])
 
-  const isEmpty = agents.size === 0 && !bridge.useMockData
-
   return (
     <OpenFileProvider value={bridge.isVSCode ? openFile : null}>
-    <div className="h-screen w-screen relative overflow-hidden" style={{ background: COLORS.void }}>
-      {/* Empty state when no demo and no live data */}
-      {isEmpty && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-          <div className="text-center" style={{ fontFamily: "'SF Mono', 'Fira Code', monospace" }}>
-            <div className="text-sm" style={{ color: '#66ccff80' }}>WAITING FOR AGENT SESSION</div>
-            <div className="mt-2 text-xs" style={{ color: '#66ccff40' }}>Start a Claude Code session to see activity</div>
-          </div>
-        </div>
-      )}
-
+    <div className="observatory h-screen w-screen relative overflow-hidden" style={{ background: COLORS.void }}>
       {/* Canvas fills everything */}
       <AgentCanvas
         simulationRef={frameRef}
@@ -399,6 +386,8 @@ export function AgentVisualizer() {
         onClose={() => setShowTimeline(false)}
       />
 
+      <ConversationPanel visible={showConversation} onClose={() => setShowConversation(false)} />
+
       {/* Top bar: session tabs + info/controls */}
       <TopBar
         sessions={bridge.sessions}
@@ -412,6 +401,7 @@ export function AgentVisualizer() {
         totalTokens={totalTokens}
         showFileAttention={showFileAttention}
         showTranscript={showTranscript}
+        showConversation={showConversation}
         showCostOverlay={showCostOverlay}
         showTimeline={showTimeline}
         isMuted={isMuted}

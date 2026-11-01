@@ -1,6 +1,8 @@
 import { createRoot } from 'react-dom/client'
 import { AgentVisualizer } from './components/agent-visualizer'
 import './app/globals.css'
+import './app/observatory.css'
+import './app/panel-density.css'
 
 // Standalone CLI entry — no VS Code API, connects to relay via SSE
 const rootElement = document.getElementById('root')

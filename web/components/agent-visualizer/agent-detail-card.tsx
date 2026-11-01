@@ -30,21 +30,27 @@ export function AgentDetailCard({
 
   // Fixed position: middle-left of the screen (below message feed panel)
   const left = CARD.margin
-  const top = typeof window !== 'undefined' ? Math.max(100, (window.innerHeight - CARD.detail.height) / 2) : 300
+  const panelTop = typeof window !== 'undefined'
+    ? Number.parseFloat(getComputedStyle(document.querySelector('.observatory') ?? document.documentElement).getPropertyValue('--obs-panel-top')) || 58
+    : 58
+  const top = typeof window !== 'undefined'
+    ? Math.max(panelTop, Math.min((window.innerHeight - CARD.detail.height) / 2, window.innerHeight - panelTop - 8))
+    : 300
 
   return (
     <GlassCard
       visible={true}
-      className="agent-detail-card"
+      className="agent-detail-card density-card density-agent-card"
       style={{
         position: 'absolute',
         left,
         top,
         width: CARD.detail.width,
+        maxHeight: typeof window !== 'undefined' ? `max(0px, calc(100dvh - ${top}px - 8px))` : undefined,
         zIndex: Z.detailCard,
       }}
     >
-      <PanelHeader onClose={onClose} className="mb-3">
+      <PanelHeader onClose={onClose}>
         <div
           className="w-2 h-2 rounded-full"
           style={{ background: stateColor, boxShadow: `0 0 8px ${stateColor}` }}
@@ -62,7 +68,7 @@ export function AgentDetailCard({
       </PanelHeader>
 
       {/* Context bar */}
-      <div className="mb-3">
+      <div className="mb-2">
         <div className="flex justify-between mb-1">
           <span className="text-[10px]" style={{ color: COLORS.textMuted }}>Context</span>
           <span className="text-[10px] font-mono" style={{ color: COLORS.textDim }}>
@@ -73,7 +79,7 @@ export function AgentDetailCard({
       </div>
 
       {/* Stats row */}
-      <div className="flex gap-3 mb-3 text-[10px] font-mono" style={{ color: COLORS.textDim }}>
+      <div className="flex gap-3 mb-2 text-[10px] font-mono" style={{ color: COLORS.textDim }}>
         <span>{agent.toolCalls} tools</span>
         <span>{agent.timeAlive.toFixed(1)}s alive</span>
         <span className="capitalize" style={{ color: stateColor }}>{agent.state}</span>
@@ -82,7 +88,7 @@ export function AgentDetailCard({
       {/* Current tool */}
       {agent.currentTool && (
         <div
-          className="mb-3 px-2 py-1.5 rounded text-[10px] font-mono flex items-center gap-2"
+          className="mb-2 px-2 py-1.5 rounded text-[10px] font-mono flex items-center gap-2"
           style={{
             background: COLORS.toolIndicatorBg,
             border: `1px solid ${COLORS.toolIndicatorBorder}`,

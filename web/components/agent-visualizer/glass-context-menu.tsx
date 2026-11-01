@@ -36,6 +36,7 @@ export function GlassContextMenu({ position, items, onClose }: ContextMenuProps)
     >
       <GlassCard
         visible={true}
+        className="density-card"
         style={{ minWidth: 160 }}
       >
         <div className="py-1">
@@ -49,7 +50,7 @@ export function GlassContextMenu({ position, items, onClose }: ContextMenuProps)
                   item.onClick()
                   onClose()
                 }}
-                className="w-full px-3 py-1.5 text-left text-[11px] font-mono transition-colors hover:bg-white/5"
+                className="density-action-target w-full justify-start px-3 text-left text-[11px] font-mono transition-colors hover:bg-white/5"
                 style={{ color: item.danger ? COLORS.error : COLORS.textPrimary }}
               >
                 {item.label}

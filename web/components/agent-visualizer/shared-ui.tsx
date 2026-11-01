@@ -27,7 +27,9 @@ export function CloseButton({ onClick, className = '' }: CloseButtonProps) {
   return (
     <button
       onClick={onClick}
-      className={`text-xs transition-colors ${className}`}
+      aria-label="Close panel"
+      title="Close panel"
+      className={`density-action-target text-xs transition-colors ${className}`}
       style={{ color: COLORS.textMuted }}
     >
       ✕
@@ -46,7 +48,7 @@ interface PanelHeaderProps {
 
 export function PanelHeader({ children, onClose, className = 'mb-2', actions }: PanelHeaderProps) {
   return (
-    <div className={`flex items-center justify-between ${className}`}>
+    <div className={`density-header flex items-center justify-between ${className}`}>
       <div className="flex items-center gap-2 min-w-0">
         {children}
       </div>
@@ -71,7 +73,11 @@ interface DetailPopupProps {
 
 export function DetailPopup({ position, width, estimatedHeight, onClose, children }: DetailPopupProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const { left, top } = clampPopupPosition(position, width, estimatedHeight)
+  const { left, top: clampedTop } = clampPopupPosition(position, width, estimatedHeight)
+  const panelTop = typeof window !== 'undefined'
+    ? Number.parseFloat(getComputedStyle(document.querySelector('.observatory') ?? document.documentElement).getPropertyValue('--obs-panel-top')) || 0
+    : 0
+  const top = Math.max(clampedTop, panelTop)
 
   useClickOutside(ref, onClose)
 
@@ -79,9 +85,10 @@ export function DetailPopup({ position, width, estimatedHeight, onClose, childre
     <div
       ref={ref}
       {...stopPropagationHandlers}
-      style={{ position: 'absolute', left, top, width, zIndex: Z.detailCard }}
+      className="density-popup"
+      style={{ position: 'absolute', left, top, width, maxWidth: 'calc(100vw - 16px)', maxHeight: `max(0px, calc(100dvh - ${top}px - 8px))`, overflowY: 'auto', zIndex: Z.detailCard }}
     >
-      <GlassCard visible={true}>
+      <GlassCard visible={true} className="density-card density-popup-card">
         {children}
       </GlassCard>
     </div>
@@ -120,6 +127,7 @@ export function SlidingPanel({
         pointerEvents: visible ? 'auto' : 'none',
         zIndex,
         width,
+        maxWidth: 'calc(100vw - 24px)',
         ...style,
       }}
     >

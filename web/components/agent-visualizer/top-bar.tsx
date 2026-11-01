@@ -1,6 +1,6 @@
 "use client"
 
-import { memo } from "react"
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Z } from "@/lib/agent-types"
 import { COLORS } from "@/lib/colors"
 import { formatTokens } from "@/lib/utils"
@@ -32,16 +32,20 @@ function UnmutedIcon() {
 
 // ─── Toggle Button ──────────────────────────────────────────────────────────
 
-function ToggleButton({ active, onClick, children, style, activeColor }: {
+function ToggleButton({ active, onClick, children, style, activeColor, label }: {
   active: boolean
   onClick: () => void
   children: React.ReactNode
   style?: React.CSSProperties
   activeColor?: { bg: string; text: string }
+  label?: string
 }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
+      aria-label={label}
+      title={label}
       className="px-1.5 py-0.5 rounded transition-all"
       style={{
         background: active ? (activeColor?.bg ?? COLORS.toggleActive) : COLORS.toggleInactive,
@@ -64,7 +68,7 @@ function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
     : status === 'connected' ? 'CONNECTED' : 'OFFLINE'
 
   return (
-    <span className="flex items-center gap-1.5">
+    <span className="flex items-center gap-1.5" role="status" aria-live="polite">
       <span
         className="w-1.5 h-1.5 rounded-full"
         style={{ background: color, boxShadow: `0 0 4px ${color}` }}
@@ -91,11 +95,12 @@ export interface TopBarProps {
   totalTokens: number
   // Panel toggles
   showFileAttention: boolean
+  showConversation: boolean
   showTranscript: boolean
   showCostOverlay: boolean
   showTimeline: boolean
   isMuted: boolean
-  onTogglePanel: (panel: 'files' | 'transcript' | 'cost') => void
+  onTogglePanel: (panel: 'files' | 'transcript' | 'cost' | 'conversation') => void
   onToggleTimeline: () => void
   onToggleMute: () => void
 }
@@ -103,62 +108,127 @@ export interface TopBarProps {
 export const TopBar = memo(function TopBar({
   sessions, selectedSessionId, sessionsWithActivity,
   onSelectSession, onCloseSession,
-  isVSCode, connectionStatus,
+  connectionStatus,
   agentCount, totalTokens,
-  showFileAttention, showTranscript, showCostOverlay, showTimeline, isMuted,
+  showFileAttention, showTranscript, showConversation, showCostOverlay, showTimeline, isMuted,
   onTogglePanel, onToggleTimeline, onToggleMute,
 }: TopBarProps) {
-  return (
-    <div className="absolute top-3 left-3 right-3 flex items-center gap-4 font-mono text-[10px]" style={{ zIndex: Z.info }}>
-      {/* Session tabs — scrollable, takes available space */}
-      {sessions.length > 1 && (
-        <div className="min-w-0 flex-shrink overflow-x-auto scrollbar-hide">
-          <SessionTabs
-            sessions={sessions}
-            selectedSessionId={selectedSessionId}
-            sessionsWithActivity={sessionsWithActivity}
-            onSelectSession={onSelectSession}
-            onCloseSession={onCloseSession}
-          />
-        </div>
-      )}
+  const headerRef = useRef<HTMLDivElement>(null)
+  const moreTriggerRef = useRef<HTMLButtonElement>(null)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
+  const [moreOpen, setMoreOpen] = useState(false)
+  useLayoutEffect(() => {
+    const header = headerRef.current
+    if (!header) return
+    const update = () => header.parentElement?.style.setProperty('--obs-panel-top', `${header.offsetTop + header.offsetHeight + 12}px`)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(header)
+    return () => observer.disconnect()
+  }, [])
 
-      {/* Spacer pushes info to the right */}
-      <div className="flex-1" />
+  useEffect(() => {
+    if (!moreOpen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setMoreOpen(false)
+      moreTriggerRef.current?.focus()
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (moreMenuRef.current?.contains(target) || moreTriggerRef.current?.contains(target)) return
+      setMoreOpen(false)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [moreOpen])
+
+  const closeMore = (action: () => void) => {
+    action()
+    setMoreOpen(false)
+    moreTriggerRef.current?.focus()
+  }
+
+  return (
+    <div ref={headerRef} className="observatory-header" style={{ zIndex: moreOpen ? Z.contextMenu : Z.info }}>
+      {/* Session tabs — scrollable, takes available space */}
+      <div className="observatory-sessions scrollbar-hide">
+        <SessionTabs
+          sessions={sessions}
+          selectedSessionId={selectedSessionId}
+          sessionsWithActivity={sessionsWithActivity}
+          onSelectSession={onSelectSession}
+          onCloseSession={onCloseSession}
+        />
+      </div>
 
       {/* Right-side info/controls */}
-      <div className="flex items-center gap-4 flex-shrink-0" style={{ color: COLORS.textMuted }}>
-        {isVSCode && <ConnectionIndicator status={connectionStatus} />}
-        <span>{agentCount} agents</span>
-        <span>
-          {formatTokens(totalTokens)} tokens
-          <span style={{ color: COLORS.complete + '65', marginLeft: 4 }}>
+      <div className="observatory-tools" style={{ color: COLORS.textMuted }}>
+        <ConnectionIndicator status={connectionStatus} />
+        <span className="observatory-metric"><b>{agentCount}</b> agents</span>
+        <span className="observatory-metric">
+          <b>{formatTokens(totalTokens)}</b> tokens
+          <span style={{ color: COLORS.textDim, marginLeft: 4 }}>
             ~${agentCost(totalTokens).toFixed(2)}
           </span>
         </span>
 
         {/* Mutually exclusive panel group */}
-        <div className="flex items-center gap-1 px-1 py-0.5 rounded" style={{
-          background: COLORS.holoBg03,
-          border: `1px solid ${COLORS.holoBorder06}`,
-        }}>
-          <ToggleButton active={showFileAttention} onClick={() => onTogglePanel('files')} style={{ background: showFileAttention ? undefined : 'transparent', border: 'none' }}>Files</ToggleButton>
-          <ToggleButton active={showTranscript} onClick={() => onTogglePanel('transcript')} style={{ background: showTranscript ? undefined : 'transparent', border: 'none' }}>Chat</ToggleButton>
+        <div className="observatory-desktop-panels flex items-center gap-1">
+          <ToggleButton active={showFileAttention} onClick={() => onTogglePanel('files')}>Files</ToggleButton>
+          <ToggleButton active={showTranscript} onClick={() => onTogglePanel('transcript')}>Transcript</ToggleButton>
           <ToggleButton
             active={showCostOverlay}
             onClick={() => onTogglePanel('cost')}
             activeColor={{ bg: COLORS.costActiveBg, text: COLORS.complete }}
-            style={{ background: showCostOverlay ? undefined : 'transparent', border: 'none' }}
           >
-            $Cost
+            Cost
           </ToggleButton>
         </div>
 
+        <ToggleButton active={showConversation} onClick={() => onTogglePanel('conversation')}>Talk</ToggleButton>
         {/* Independent toggles */}
-        <ToggleButton active={showTimeline} onClick={onToggleTimeline}>Timeline</ToggleButton>
-        <ToggleButton active={!isMuted} onClick={onToggleMute} style={{ border: `1px solid ${COLORS.toggleBorder}` }}>
+        <div className="observatory-desktop-panels flex items-center gap-1">
+          <ToggleButton active={showTimeline} onClick={onToggleTimeline}>Timeline</ToggleButton>
+          <ToggleButton active={!isMuted} label={isMuted ? "Enable sound" : "Mute sound"} onClick={onToggleMute}>
           {isMuted ? <MutedIcon /> : <UnmutedIcon />}
-        </ToggleButton>
+          </ToggleButton>
+        </div>
+
+        <div className="observatory-overflow">
+          <button
+            ref={moreTriggerRef}
+            type="button"
+            className="observatory-more-trigger"
+            aria-expanded={moreOpen}
+            aria-controls="observatory-more-menu"
+            onClick={() => setMoreOpen(open => !open)}
+          >
+            More <span aria-hidden="true">{moreOpen ? '▴' : '▾'}</span>
+          </button>
+          {moreOpen && (
+            <div ref={moreMenuRef} id="observatory-more-menu" className="observatory-more-menu" aria-label="More controls">
+              <div className="observatory-more-metrics">
+                <span><b>{agentCount}</b> agents</span>
+                <span><b>{formatTokens(totalTokens)}</b> tokens</span>
+                <span>~${agentCost(totalTokens).toFixed(2)}</span>
+              </div>
+              <ToggleButton active={showFileAttention} onClick={() => closeMore(() => onTogglePanel('files'))}>Files</ToggleButton>
+              <ToggleButton active={showTranscript} onClick={() => closeMore(() => onTogglePanel('transcript'))}>Transcript</ToggleButton>
+              <ToggleButton active={showCostOverlay} onClick={() => closeMore(() => onTogglePanel('cost'))} activeColor={{ bg: COLORS.costActiveBg, text: COLORS.complete }}>Cost</ToggleButton>
+              <ToggleButton active={showTimeline} onClick={() => closeMore(onToggleTimeline)}>Timeline</ToggleButton>
+              <ToggleButton active={!isMuted} label={isMuted ? "Enable sound" : "Mute sound"} onClick={() => closeMore(onToggleMute)}>
+                {isMuted ? <MutedIcon /> : <UnmutedIcon />} Sound
+              </ToggleButton>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

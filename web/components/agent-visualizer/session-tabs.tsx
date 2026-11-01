@@ -42,39 +42,24 @@ export function SessionTabs({
         // Green dot: session is active, OR has unseen background activity
         const showGreen = isActive || hasActivity
         return (
+          <div key={session.id} className="observatory-session" data-selected={isSelected}>
           <button
-            key={session.id}
+            type="button"
+            aria-pressed={isSelected}
+            title={session.label}
             ref={(el) => setButtonRef(session.id, el)}
             onClick={() => onSelectSession(session.id)}
-            className="group px-1.5 py-0.5 rounded transition-all flex items-center gap-1"
-            style={{
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
-              background: isSelected ? COLORS.tabSelectedBg : COLORS.tabInactiveBg,
-              border: `1px solid ${isSelected ? COLORS.tabSelectedBorder : COLORS.tabInactiveBorder}`,
-              color: isSelected ? COLORS.holoBright : COLORS.textMuted,
-            }}
+            className="observatory-session-select"
+            style={{ color: isSelected ? COLORS.holoBright : COLORS.textMuted }}
           >
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
-              style={{
-                background: showGreen ? COLORS.complete : COLORS.idle + '40',
-                boxShadow: showGreen ? `0 0 4px ${COLORS.complete}` : 'none',
-                animation: hasActivity && !isSelected ? 'pulse 1.5s infinite' : 'none',
-              }}
-            />
-            {session.label}
-            <span
-              className="ml-0.5 opacity-0 group-hover:opacity-60 transition-opacity cursor-pointer"
-              style={{ color: COLORS.tabClose, fontSize: 8, lineHeight: '10px' }}
-              onClick={(e) => {
-                e.stopPropagation()
-                onCloseSession(session.id)
-              }}
-            >
-              ✕
-            </span>
+            <span aria-hidden="true" className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
+              style={{ background: showGreen ? COLORS.complete : COLORS.idle + '40' }} />
+            <span className="truncate">{session.label}</span>
           </button>
+          <button type="button" className="observatory-session-close"
+            aria-label={`Close session ${session.label}`} title="Close session"
+            onClick={() => onCloseSession(session.id)}>&times;</button>
+          </div>
         )
       })}
     </div>

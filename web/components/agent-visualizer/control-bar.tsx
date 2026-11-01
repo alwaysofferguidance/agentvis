@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react'
 import { TimelineEvent, Z, POPUP, TIMING } from '@/lib/agent-types'
 import { COLORS } from '@/lib/colors'
+import { timeAtClientX, timeForSeekKey } from './scrubber'
 
 interface ControlBarProps {
   isPlaying: boolean
@@ -107,7 +108,7 @@ function LiveControlBar({
 
   return (
     <div
-      className="absolute bottom-4 left-4 right-4 mx-auto"
+      className="observatory-playback absolute bottom-4 left-4 right-4 mx-auto"
       style={{ pointerEvents: 'auto', maxWidth: POPUP.controlBarMaxWidth, zIndex: Z.controlBar }}
     >
       <div className="glass-card px-5 py-3 flex items-center gap-3">
@@ -143,7 +144,7 @@ function LiveControlBar({
 
         {/* Event count */}
         <span className="text-[10px] font-mono shrink-0" style={{ color: COLORS.textMuted }}>
-          {eventCount}
+          {eventCount} events
         </span>
 
         {/* Review button */}
@@ -173,6 +174,7 @@ function ReviewControlBar({
   timelineEvents, isReviewing, onResumeLive,
 }: ControlBarProps) {
   const scrubberRef = useRef<HTMLDivElement>(null)
+  const activePointerIdRef = useRef<number | null>(null)
   const [isScrubbing, setIsScrubbing] = useState(false)
   const scrubberEvents = useScrubberEvents(timelineEvents, totalDuration)
   const progress = totalDuration > 0 ? currentTime / totalDuration : 0
@@ -180,31 +182,34 @@ function ReviewControlBar({
   const scrubToClientX = useCallback((clientX: number) => {
     const rect = scrubberRef.current?.getBoundingClientRect()
     if (!rect || !onSeek) return
-    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-    onSeek(ratio * totalDuration)
+    const time = timeAtClientX(clientX, rect.left, rect.width, totalDuration)
+    if (time !== null) onSeek(time)
   }, [onSeek, totalDuration])
 
-  useEffect(() => {
-    if (!isScrubbing) return
-    const handleMove = (e: MouseEvent) => scrubToClientX(e.clientX)
-    const handleUp = () => setIsScrubbing(false)
-    window.addEventListener('mousemove', handleMove)
-    window.addEventListener('mouseup', handleUp)
-    return () => {
-      window.removeEventListener('mousemove', handleMove)
-      window.removeEventListener('mouseup', handleUp)
-    }
-  }, [isScrubbing, scrubToClientX])
+  const handleScrubberKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    const time = timeForSeekKey(event.key, currentTime, totalDuration)
+    if (time === null || !onSeek) return
+    event.preventDefault()
+    onSeek(time)
+  }, [currentTime, totalDuration, onSeek])
+
+  const finishScrubbing = useCallback((pointerId: number) => {
+    if (activePointerIdRef.current !== pointerId) return
+    activePointerIdRef.current = null
+    setIsScrubbing(false)
+  }, [])
 
   return (
     <div
-      className="absolute bottom-4 left-4 right-4 mx-auto"
+      className="observatory-playback absolute bottom-4 left-4 right-4 mx-auto"
       style={{ pointerEvents: 'auto', maxWidth: POPUP.controlBarMaxWidth, zIndex: Z.controlBar }}
     >
       <div className="glass-card px-5 py-3 flex items-center gap-3">
         {/* Play/Pause */}
         <button
           onClick={onPlayPause}
+          aria-label={isPlaying ? 'Pause playback' : 'Play playback'}
+          title={isPlaying ? 'Pause playback' : 'Play playback'}
           className="w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 hover:scale-110"
           style={{
             background: isPlaying ? COLORS.playBtnActiveBg : COLORS.playBtnBg,
@@ -225,12 +230,34 @@ function ReviewControlBar({
         {/* Timeline scrubber */}
         <div
           ref={scrubberRef}
+          role="slider"
+          tabIndex={0}
+          aria-label="Playback position"
+          aria-valuemin={0}
+          aria-valuemax={Math.max(0, totalDuration)}
+          aria-valuenow={Math.max(0, Math.min(totalDuration, currentTime))}
+          aria-valuetext={`${formatTime(currentTime)} of ${formatTime(totalDuration)}`}
           className="flex-1 relative h-8 flex items-center group cursor-pointer"
-          onMouseDown={(e) => {
+          style={{ touchAction: 'none' }}
+          onKeyDown={handleScrubberKeyDown}
+          onPointerDown={(e) => {
+            if (activePointerIdRef.current !== null) return
             e.preventDefault()
+            activePointerIdRef.current = e.pointerId
+            e.currentTarget.setPointerCapture(e.pointerId)
             setIsScrubbing(true)
             scrubToClientX(e.clientX)
           }}
+          onPointerMove={(e) => {
+            if (activePointerIdRef.current === e.pointerId) scrubToClientX(e.clientX)
+          }}
+          onPointerUp={(e) => {
+            if (activePointerIdRef.current !== e.pointerId) return
+            scrubToClientX(e.clientX)
+            finishScrubbing(e.pointerId)
+          }}
+          onPointerCancel={(e) => finishScrubbing(e.pointerId)}
+          onLostPointerCapture={(e) => finishScrubbing(e.pointerId)}
         >
           <div
             className="w-full rounded-full relative transition-all duration-150 group-hover:h-2"
@@ -277,6 +304,8 @@ function ReviewControlBar({
             <button
               key={s}
               onClick={() => onSpeedChange(s)}
+              aria-label={`Set playback speed to ${s}x`}
+              aria-pressed={speed === s}
               className="px-2 py-0.5 rounded text-[10px] font-mono transition-all"
               style={{
                 background: speed === s ? COLORS.playBtnActiveBg : 'transparent',
@@ -292,6 +321,7 @@ function ReviewControlBar({
         {isReviewing && (
           <button
             onClick={onResumeLive}
+            aria-label="Return to live playback"
             className="px-2.5 py-1 rounded text-[10px] font-mono font-semibold transition-all hover:scale-105 shrink-0"
             style={{
               background: COLORS.liveResumeBg,
@@ -307,6 +337,8 @@ function ReviewControlBar({
         {isReviewing && (
           <button
             onClick={onRestart}
+            aria-label="Restart replay"
+            title="Restart replay"
             className="text-sm transition-all shrink-0 hover:scale-110"
             style={{ color: COLORS.textDim }}
           >

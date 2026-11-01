@@ -9,6 +9,34 @@
 export type { AgentEvent, SessionInfo, ConnectionStatus } from './bridge-types'
 import type { AgentEvent, SessionInfo, ConnectionStatus } from './bridge-types'
 
+/** Return the buffered event prefix already reflected in the current snapshot. */
+export function getAppliedSessionEventCount(
+  bufferedEvents: readonly { sessionId?: string }[],
+  pendingEvents: readonly { sessionId?: string }[],
+  sessionId: string,
+  deferredPendingCount = 0,
+): number {
+  const bufferedCount = bufferedEvents.reduce(
+    (count, event) => count + (event.sessionId === sessionId ? 1 : 0),
+    0,
+  )
+  const pendingCount = pendingEvents.reduce(
+    (count, event) => count + (event.sessionId === sessionId ? 1 : 0),
+    0,
+  )
+  return Math.max(0, bufferedCount - pendingCount - deferredPendingCount)
+}
+
+export function getPendingSessionEventCount(
+  pendingEvents: readonly { sessionId?: string }[],
+  sessionId: string,
+): number {
+  return pendingEvents.reduce(
+    (count, event) => count + (event.sessionId === sessionId ? 1 : 0),
+    0,
+  )
+}
+
 type InitCallback = () => void
 type EventCallback = (event: AgentEvent) => void
 type StatusCallback = (status: ConnectionStatus, source: string) => void
@@ -132,7 +160,9 @@ class VSCodeBridge {
   }
 
   onStatus(callback: StatusCallback): () => void {
-    return this.subscribe(this.statusListeners, callback)
+    const unsubscribe = this.subscribe(this.statusListeners, callback)
+    callback(this._status, this._source)
+    return unsubscribe
   }
 
   onConfig(callback: ConfigCallback): () => void {

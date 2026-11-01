@@ -23,11 +23,11 @@ export function FileAttentionPanel({ visible, fileAttention, onClose, onOpenFile
   return (
     <SlidingPanel
       visible={visible}
-      position={{ top: 48, right: 12 }}
+      position={{ top: 'var(--obs-panel-top, 140px)', right: 12 }}
       zIndex={Z.sidePanel}
       width={260}
     >
-      <div className="glass-card relative">
+      <div className="glass-card density-card density-file-card relative">
         <PanelHeader onClose={onClose}>
           <span className="text-[10px] font-mono tracking-wider" style={{ color: COLORS.textPrimary }}>
             FILE ATTENTION
@@ -35,9 +35,9 @@ export function FileAttentionPanel({ visible, fileAttention, onClose, onOpenFile
         </PanelHeader>
 
         {/* File list */}
-        <div className="space-y-1 max-h-[300px] overflow-y-auto">
+        <div className="density-file-list space-y-1">
           {files.length === 0 && (
-            <div className="text-[9px] font-mono py-2 text-center" style={{ color: COLORS.textMuted }}>
+            <div className="density-empty-inline text-[10px] font-mono text-center" style={{ color: COLORS.textMuted }}>
               No files accessed yet
             </div>
           )}
@@ -46,19 +46,28 @@ export function FileAttentionPanel({ visible, fileAttention, onClose, onOpenFile
             const heatColor = heatRatio > 0.7 ? COLORS.error :
               heatRatio > 0.4 ? COLORS.tool :
                 COLORS.holoBase
-            const canOpen = onOpenFile && file.path.startsWith('/')
+            const canOpen = onOpenFile && /^(?:\/|[a-z]:[\\/]|\\\\)/i.test(file.path)
             const displayPath = truncatePath(file.path)
 
             return (
               <div
                 key={file.path}
-                className={`rounded px-2 py-1.5 transition-colors ${canOpen ? 'hover:brightness-125' : ''}`}
+                className={`density-file-row rounded px-2 py-1.5 transition-colors ${canOpen ? 'hover:brightness-125' : ''}`}
+                role={canOpen ? 'button' : undefined}
+                tabIndex={canOpen ? 0 : undefined}
+                aria-label={canOpen ? `Open ${file.path}` : undefined}
                 style={{
                   background: `rgba(10, 15, 30, 0.5)`,
                   border: `1px solid ${canOpen ? heatColor + '30' : heatColor + '15'}`,
                   cursor: canOpen ? 'pointer' : undefined,
                 }}
                 onClick={canOpen ? () => onOpenFile(file.path) : undefined}
+                onKeyDown={canOpen ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onOpenFile(file.path)
+                  }
+                } : undefined}
                 title={canOpen ? file.path : undefined}
               >
                 {/* Filename */}
@@ -102,7 +111,7 @@ export function FileAttentionPanel({ visible, fileAttention, onClose, onOpenFile
 
         {/* Summary */}
         {files.length > 0 && (
-          <div className="mt-2 pt-2 flex justify-between text-[9px] font-mono" style={{
+          <div className="mt-1 pt-1 flex justify-between text-[9px] font-mono" style={{
             borderTop: `1px solid ${COLORS.holoBorder08}`,
             color: COLORS.textMuted,
           }}>

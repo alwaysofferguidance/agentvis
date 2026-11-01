@@ -1,0 +1,141 @@
+/* Scoped workspace sizing for floating observatory panels. */
+.observatory .density-card {
+  box-sizing: border-box;
+  padding: 8px;
+}
+
+.observatory .density-header {
+  min-height: 32px;
+  margin-bottom: 6px;
+}
+
+.observatory .density-action-target {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.observatory .density-action-target:focus-visible,
+.observatory .density-file-row:focus-visible,
+.observatory .density-message-trigger:focus-visible,
+.observatory .density-message-row:focus-visible {
+  outline: 2px solid var(--obs-accent);
+  outline-offset: 2px;
+}
+
+.observatory .density-file-card,
+.observatory .density-chat-card,
+.observatory .density-feed-card,
+.observatory .density-timeline-card {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.observatory .density-file-card {
+  display: flex;
+  flex-direction: column;
+  max-height: max(0px, calc(100dvh - var(--obs-panel-top, 140px) - 12px));
+}
+
+.observatory .density-file-list {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: max(0px, min(420px, calc(100dvh - var(--obs-panel-top, 140px) - 112px)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.observatory .density-chat-card {
+  max-height: max(0px, min(360px, calc(100dvh - var(--obs-panel-top, 140px) - 72px)));
+}
+
+.observatory .density-chat-messages {
+  flex: 1 1 auto;
+  min-height: max(0px, min(100px, calc(100dvh - var(--obs-panel-top, 140px) - 180px)));
+  max-height: max(0px, min(240px, calc(100dvh - var(--obs-panel-top, 140px) - 180px)));
+  overscroll-behavior: contain;
+}
+
+.observatory .density-transcript-header {
+  min-height: 36px;
+  padding: 4px 10px;
+}
+
+.observatory .density-transcript-search {
+  padding: 4px 10px 6px;
+}
+
+.observatory .density-transcript-list {
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+.observatory .density-empty-inline {
+  min-height: 0;
+  padding: 10px 8px;
+}
+
+.observatory .density-agent-card {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The positioned popup wrapper owns scrolling; do not create a second scroller. */
+.observatory .density-popup-card { min-height: 0; }
+
+
+.observatory .density-timeline-card {
+  display: flex;
+  flex-direction: column;
+  max-height: max(0px, calc(100dvh - var(--obs-panel-top, 140px) - 80px));
+}
+
+.observatory .density-timeline-scroll {
+  min-height: 0;
+  max-height: max(0px, calc(100dvh - var(--obs-panel-top, 140px) - 132px));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.observatory .density-feed-card {
+  max-height: max(0px, calc(100dvh - var(--obs-panel-top, 140px) - 96px));
+}
+
+.observatory .density-feed-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overscroll-behavior: contain;
+}
+
+.observatory .density-transcript input:focus-visible {
+  outline: 2px solid var(--obs-accent);
+  outline-offset: 2px;
+}
+
+.observatory .density-file-row[role="button"],
+.observatory .density-message-trigger,
+.observatory .density-message-row[role="button"] {
+  cursor: pointer;
+}
+
+@media (max-height: 540px) {
+  .observatory .density-chat-messages { max-height: max(0px, calc(100dvh - var(--obs-panel-top, 140px) - 160px)); }
+  .observatory .density-transcript-header { min-height: 32px; }
+  .observatory .density-timeline-scroll { max-height: max(0px, calc(100dvh - var(--obs-panel-top, 140px) - 128px)); }
+  .observatory .density-feed-card { max-height: max(0px, calc(100dvh - var(--obs-panel-top, 80px) - 88px)); }
+}
+
+@media (pointer: coarse) {
+  .observatory .density-action-target,
+  .observatory .density-file-row[role="button"],
+  .observatory .density-message-trigger,
+  .observatory .density-message-row[role="button"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

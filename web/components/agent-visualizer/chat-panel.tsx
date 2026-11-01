@@ -36,7 +36,7 @@ export function AgentChatPanel({
       width={CARD.chat.width}
       {...stopPropagationHandlers}
     >
-      <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', maxHeight: CARD.chat.maxHeight }}>
+      <div className="glass-card density-card density-chat-card" style={{ display: 'flex', flexDirection: 'column' }}>
         <PanelHeader onClose={onClose} className="mb-2 flex-shrink-0">
           <div
             className="w-1.5 h-1.5 rounded-full"
@@ -53,8 +53,7 @@ export function AgentChatPanel({
         {/* Messages */}
         <div
           ref={logRef}
-          className="flex-1 overflow-y-auto space-y-1.5 mb-2"
-          style={{ minHeight: CARD.chat.messagesMinHeight, maxHeight: CARD.chat.messagesMaxHeight }}
+          className="density-chat-messages overflow-y-auto space-y-1.5 mb-2"
         >
           {conversation.length === 0 ? (
             <div className="flex items-center justify-center h-full">

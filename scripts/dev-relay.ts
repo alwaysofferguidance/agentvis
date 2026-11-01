@@ -5,6 +5,7 @@
  */
 import * as http from 'http'
 import { createRelay } from './relay'
+import { createChatHandler } from './chat-server'
 import { DEFAULT_RELAY_PORT, DEV_WEB_ORIGIN_PATTERN } from '../extension/src/constants'
 
 async function main() {
@@ -15,6 +16,7 @@ async function main() {
 
   const relay = await createRelay({ workspace, verbose: true })
 
+  const chat = createChatHandler(workspace)
   const server = http.createServer((req, res) => {
     // Echo back the request Origin if it matches a localhost pattern, so
     // CORS survives Next.js picking a fallback port when 3000 is busy.
@@ -23,7 +25,7 @@ async function main() {
       res.setHeader('Access-Control-Allow-Origin', origin)
       res.setHeader('Vary', 'Origin')
     }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
     if (req.method === 'OPTIONS') {
@@ -31,6 +33,8 @@ async function main() {
       res.end()
       return
     }
+
+    if (req.url === '/chat') { void chat(req, res); return }
 
     if (req.url === '/events') {
       return relay.handleSSE(req, res)

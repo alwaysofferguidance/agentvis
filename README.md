@@ -165,3 +165,17 @@ paths, tool calls, user info, and environment variables are never sent.
 Apache 2.0 — see [LICENSE](LICENSE) for details.
 
 The name "Agent Flow" and associated logos are trademarks of Simon Patole. See [TRADEMARK.md](TRADEMARK.md) for usage guidelines.
+
+## Local conversations
+
+Run `npm run dev` from the repository root after installing dependencies. This starts the local relay on port 3001 and the web app on port 3000 on Windows, macOS, or Linux.
+
+Open **Talk**, choose **Codex**, **Pi**, or **Antigravity**, and send a message. Each runtime uses its installed CLI and existing login. Follow-up messages resume the conversation; **New conversation** starts another thread. **Stop** cancels the current reply. Conversation text survives a reload in the same browser tab; restarting the relay requires a new conversation.
+
+**Dictate** fills the composer using the browser's speech recognition (microphone permission required). Review the text and send it. **Read replies** uses browser speech synthesis. Dictation availability depends on the browser; typed chat works without it.
+
+Codex runs in its read-only sandbox, Pi runs with tools disabled, and Antigravity uses plan mode. The chat endpoint accepts local browser origins and does not accept arbitrary shell commands. Optional launcher overrides are `CODEX_CLI_PATH`, `PI_CLI_PATH`, and `AGY_CLI_PATH`.
+
+## UI design guidance
+
+The [Workspace First skill](skills/workspace-first/SKILL.md) applies to frontend design, implementation, review, and debugging. It keeps the canvas and conversations usable by reducing persistent chrome while preserving readable content and essential controls. The skill, invocation metadata, and reference screenshots are versioned in `skills/workspace-first/`; copy that folder into your agent's skills directory to install it.

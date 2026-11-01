@@ -191,11 +191,20 @@ export function MessageFeedPanel({
 
     return (
       <div
-        className="absolute cursor-pointer transition-all hover:scale-[1.02]"
-        style={{ top: 48, left: 12, zIndex: Z.info, pointerEvents: 'auto' }}
+        className="density-message-trigger absolute cursor-pointer transition-all hover:scale-[1.02]"
+        style={{ top: 'var(--obs-panel-top, 140px)', left: 12, zIndex: Z.info, pointerEvents: 'auto' }}
         onClick={() => setExpanded(true)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            setExpanded(true)
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label={`Open messages. Latest from ${agentName}: ${preview}`}
       >
-        <div className="glass-card px-3 py-2 flex items-center gap-2" style={{ maxWidth: 320 }}>
+        <div className="glass-card density-card px-3 py-2 flex items-center gap-2" style={{ maxWidth: 'min(320px, calc(100vw - 24px))' }}>
           <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: role.text }} />
           <span className="text-[9px] font-mono font-semibold shrink-0" style={{ color: COLORS.textPrimary }}>
             {agentName.length > COLLAPSED_AGENT_NAME_MAX ? agentName.slice(0, COLLAPSED_AGENT_NAME_MAX) + '..' : agentName}
@@ -214,18 +223,19 @@ export function MessageFeedPanel({
     <div
       ref={panelRef}
       className="absolute"
-      style={{ top: 48, left: 12, zIndex: Z.info, pointerEvents: 'auto' }}
+      style={{ top: 'var(--obs-panel-top, 140px)', left: 12, zIndex: Z.info, pointerEvents: 'auto' }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="glass-card flex flex-col" style={{ width: 320, maxHeight: 420 }}>
+      <div className="glass-card density-card density-feed-card flex flex-col" style={{ width: 'min(320px, calc(100vw - 24px))' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-3 pt-2 pb-1">
+        <div className="flex items-center justify-between px-1 pt-0 pb-1">
           <span className="text-[10px] font-mono font-semibold tracking-wider" style={{ color: COLORS.textPrimary }}>
             MESSAGES
           </span>
           <button
             onClick={() => setExpanded(false)}
-            className="text-[9px] transition-colors"
+            className="density-action-target text-[9px] transition-colors"
+            aria-label="Collapse messages"
             style={{ color: COLORS.textMuted }}
           >
             ▴
@@ -263,12 +273,12 @@ export function MessageFeedPanel({
         <div
           ref={logRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-2 pb-2"
-          style={{ maxHeight: 340, scrollbarWidth: 'thin', scrollbarColor: `${COLORS.scrollbarThumb} transparent` }}
+          className="density-feed-list flex-1 overflow-y-auto px-1 pb-1"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: `${COLORS.scrollbarThumb} transparent` }}
         >
           {messages.length === 0 ? (
             <div className="flex items-center justify-center py-6">
-              <span className="text-[9px] font-mono" style={{ color: COLORS.textMuted }}>
+              <span className="text-[10px] font-mono" style={{ color: COLORS.textMuted }}>
                 No messages yet
               </span>
             </div>
@@ -313,7 +323,7 @@ function TabButton({ label, active, onClick, color, hasUnread }: {
   return (
     <button
       onClick={onClick}
-      className="px-2 py-0.5 rounded text-[9px] font-mono transition-all shrink-0 relative"
+      className="density-action-target px-2 rounded text-[9px] font-mono transition-all shrink-0 relative"
       style={{
         background: active ? color + '20' : 'transparent',
         color: active ? color : COLORS.textMuted,
@@ -350,7 +360,15 @@ function MessageRow({ message, agentId, agentName, showAgent, isSelected, onClic
 
   return (
     <div
-      className="rounded px-2 py-1.5 cursor-pointer transition-all"
+      className="density-message-row rounded px-2 py-1.5 cursor-pointer transition-all"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if ((event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) {
+          event.preventDefault()
+          onClick()
+        }
+      }}
       style={{
         background: isSelected ? role.bgSelected : role.bg,
         borderLeft: isSelected ? `2px solid ${role.text}` : '2px solid transparent',
@@ -371,7 +389,7 @@ function MessageRow({ message, agentId, agentName, showAgent, isSelected, onClic
 
       {/* Content */}
       <div
-        className="text-[9px] font-mono leading-relaxed whitespace-pre-wrap break-words"
+        className="text-[11px] font-mono leading-relaxed whitespace-pre-wrap break-words"
         style={{ color: role.text }}
       >
         {displayText}
@@ -380,7 +398,7 @@ function MessageRow({ message, agentId, agentName, showAgent, isSelected, onClic
       {/* Expand/collapse for long messages */}
       {isLong && (
         <button
-          className="text-[9px] font-mono mt-0.5 transition-colors"
+          className="density-action-target text-[10px] font-mono mt-0.5 transition-colors"
           style={{ color: COLORS.textMuted }}
           onClick={(e) => { e.stopPropagation(); setExpanded(prev => !prev) }}
         >

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Workspace First"
+  short_description: "Recover viewport space for the user's actual work."
+  default_prompt: "Use $workspace-first to identify and correct wasted UI space so the primary task has more usable room."
+policy:
+  allow_implicit_invocation: true

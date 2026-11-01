@@ -1,0 +1,96 @@
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R5 V4 */
+:root {
+  --obs-surface: #101923;
+  --obs-edge: #283846;
+  --obs-ink: #e1ebf3;
+  --obs-muted: #91a8ba;
+  --obs-accent: #8bd8e8;
+  --obs-shadow: 0 12px 40px #00000038;
+}
+html, body { overflow-x: clip; }
+.observatory { height: 100dvh; color: var(--obs-ink); }
+.observatory button { cursor: pointer; }
+.observatory button:focus-visible { outline: 2px solid var(--obs-accent); outline-offset: 3px; }
+.observatory button:disabled { cursor: default; opacity: .45; }
+.observatory-header {
+  position: absolute; top: 0; left: 0; right: 0; height: 46px; box-sizing: border-box;
+  display: flex; align-items: center; gap: 12px;
+  padding: 4px 10px; border-bottom: 1px solid var(--obs-edge);
+  background: var(--obs-surface); font-family: var(--font-sans); font-size: 11px;
+}
+.observatory-tools { position: relative; display: flex; align-items: center; gap: 8px; flex: 0 0 auto; white-space: nowrap; }
+.observatory-tools button { min-height: 32px; padding: 4px 8px; border-radius: 6px; white-space: nowrap; transition: background .15s, color .15s; }
+.observatory-tools button:hover { color: var(--obs-ink) !important; background: var(--obs-edge) !important; }
+.observatory-tools button[aria-pressed="true"] { box-shadow: inset 0 -2px var(--obs-accent); }
+.observatory-desktop-panels { gap: 2px; }
+.observatory-metric { font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.observatory-metric b { font-size: 13px; font-weight: 500; color: var(--obs-ink); }
+.observatory-sessions { flex: 1 1 auto; min-width: 0; overflow-x: auto; }
+.observatory-sessions > div { width: max-content; min-width: 100%; }
+.observatory-sessions button { min-height: 32px; padding: 4px 8px; font-size: 11px; gap: 6px; }
+.observatory-sessions button[aria-pressed="true"] { border-color: var(--obs-accent) !important; }
+.observatory-overflow { display: none; position: relative; }
+.observatory-more-trigger { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--obs-edge); background: transparent; color: var(--obs-ink); }
+.observatory-more-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 100; display: flex; flex-direction: column; gap: 4px; min-width: 176px; padding: 8px; border: 1px solid var(--obs-edge); border-radius: 8px; background: var(--obs-surface); box-shadow: var(--obs-shadow); }
+.observatory-more-menu button { display: flex; align-items: center; justify-content: flex-start; gap: 8px; min-height: 40px; width: 100%; padding: 6px 10px; text-align: left; }
+.observatory-more-metrics { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 4px 6px 8px; border-bottom: 1px solid var(--obs-edge); color: var(--obs-muted); font-size: 10px; }
+.observatory-more-metrics b { color: var(--obs-ink); font-weight: 500; }
+.observatory .glass-card { background: var(--obs-surface); border-color: var(--obs-edge); border-radius: 12px; box-shadow: var(--obs-shadow); }
+.observatory .glass-card::before { display: none; }
+.observatory-playback .glass-card { min-height: 40px; box-sizing: border-box; padding: 4px 12px; gap: 10px; border-radius: 8px; }
+.observatory-playback button { min-height: 32px; white-space: nowrap; }
+.observatory-playback button:hover { filter: brightness(1.3); }
+@media (max-width: 900px) {
+ .observatory-header { gap: 8px; padding: 4px 8px; }
+ .observatory-tools { gap: 6px; }
+ .observatory-metric, .observatory-desktop-panels { display: none; }
+ .observatory-overflow { display: block; }
+ .observatory-tools [role="status"] { font-size: 10px; gap: 4px; }
+}
+@media (max-width: 540px) {
+ .observatory-playback { left: 10px; right: 10px; bottom: 10px; }
+ .observatory-playback .glass-card { padding: 4px 8px; gap: 6px; flex-wrap: wrap; }
+ .observatory-playback button { min-height: 36px; }
+}
+@media (pointer: coarse) {
+ .observatory-header { height: 54px; }
+ .observatory-tools > button, .observatory-more-trigger, .observatory-more-menu button { min-height: 44px; min-width: 44px; }
+ .observatory-sessions button { min-height: 44px; min-width: 44px; }
+ .observatory-playback button { min-height: 44px; min-width: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+ .observatory *, .observatory *::before { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
+.observatory-session { display:flex; flex-shrink:0; align-items:center; border:1px solid var(--obs-edge); border-radius:6px; max-width:260px; }
+.observatory-session[data-selected="true"] { border-color:var(--obs-accent); background:var(--obs-edge); }
+.observatory-session .observatory-session-select { display:flex; align-items:center; min-width:0; border:0; max-width:220px; }
+.observatory-session .observatory-session-close { padding:4px 8px; font-size:16px; color:var(--obs-muted); }
+.observatory-session .observatory-session-close:hover { color:var(--obs-ink); }
+.conversation-panel { position:absolute; z-index:70; top:var(--obs-panel-top,140px); right:12px; bottom:68px; width:440px; max-width:calc(100vw - 24px); display:flex; flex-direction:column; min-height:0; background:var(--obs-surface); border:1px solid var(--obs-edge); border-radius:12px; box-shadow:var(--obs-shadow); overflow:hidden; font-family:var(--font-sans); color:var(--obs-ink); }
+.conversation-header { min-height:48px; box-sizing:border-box; padding:5px 10px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--obs-edge); flex-shrink:0; }
+.conversation-panel button { border:1px solid var(--obs-edge); border-radius:6px; min-height:36px; padding:6px 12px; font-size:12px; }
+.conversation-panel button:hover:enabled { background:var(--obs-edge); }
+.conversation-header select { min-width:0; max-width:50%; min-height:36px; margin-right:auto; background:var(--obs-surface); color:var(--obs-ink); padding:6px 8px; border:1px solid var(--obs-edge); border-radius:6px; font-size:12px; }
+.conversation-header button:last-child { min-width:36px; padding:4px 8px; font-size:22px; line-height:1; }
+.conversation-messages { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:12px; }
+.conversation-message { padding:12px 0; border-bottom:1px solid var(--obs-edge); }
+.conversation-message > span { font-size:10px; color:var(--obs-accent); font-weight:600; }
+.conversation-message.user > span { color:var(--obs-muted); }
+.conversation-message p { white-space:pre-wrap; overflow-wrap:anywhere; font-size:13px; line-height:1.7; margin-top:6px; }
+.conversation-error { padding:10px 16px; font-size:12px; color:var(--obs-ink); border-top:1px solid var(--obs-edge); max-height:100px; overflow-y:auto; flex-shrink:0; }
+.conversation-composer { padding:10px; border-top:1px solid var(--obs-edge); flex-shrink:0; }
+.conversation-composer textarea { box-sizing:border-box; display:block; width:100%; resize:vertical; min-height:48px; max-height:160px; background:var(--background); color:var(--obs-ink); border:1px solid var(--obs-edge); border-radius:8px; padding:9px 10px; font-size:13px; outline-offset:2px; }
+.conversation-composer textarea::placeholder { color:var(--obs-muted); }
+.conversation-actions { display:flex; align-items:center; gap:8px; margin-top:6px; }
+.conversation-actions button { display:flex; align-items:center; gap:6px; }
+.conversation-read { display:flex; align-items:center; gap:5px; min-height:36px; padding:0 4px; font-size:11px; color:var(--obs-muted); white-space:nowrap; }
+.conversation-read input { accent-color:var(--obs-accent); }
+.conversation-actions .conversation-send { margin-left:auto; background:var(--obs-accent); color:var(--obs-surface); border-color:var(--obs-accent); font-weight:600; }
+@media (max-width:540px) { .conversation-panel { right:10px; left:10px; width:auto; max-width:none; } .conversation-header { padding:5px 8px; } .conversation-composer { padding:8px; } }
+@media (max-height:540px) { .conversation-panel { top:8px; bottom:8px; } .conversation-header { min-height:40px; padding:3px 8px; } .conversation-messages { padding:8px 12px; } .conversation-composer textarea { height:40px; min-height:40px; } .conversation-composer { padding:6px 8px; } }
+@media (pointer:coarse) {
+  .conversation-header button, .conversation-header select, .conversation-actions button { min-height:44px; }
+  .conversation-header button:last-child { min-width:44px; }
+  .conversation-read { min-height:44px; padding:0 6px; }
+}
